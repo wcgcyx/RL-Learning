@@ -77,7 +77,7 @@ class Agent:
         for i in range(batch_size):
             target[i, actions[i]] = reward[i] \
                 if end[i] == 1 else reward[i] + \
-                                    self.discount_factor + np.max(q_future[i])
+                                    self.discount_factor * np.max(q_future[i])
 
         # Training
         self.q_evaluate.fit(x=state_1, y=target, epochs=1, verbose=0)

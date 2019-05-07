@@ -38,7 +38,7 @@ def train_agent(
             reward = time_step.reward
             end = 1 if time_step.last() else 0
 
-            agent.store_transition(state, action, end, reward, state_)
+            agent.store_transition(state_1=state, action=action, reward=reward, end=end, state_2=state_)
 
             agent.learn()
 
