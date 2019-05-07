@@ -36,7 +36,7 @@ def test_agent(
             time_step = env.step(action)
             render(env)
 
-            total_reward = time_step.reward
+            total_reward += time_step.reward
 
         print("Total reward: {}".format(total_reward))
 
