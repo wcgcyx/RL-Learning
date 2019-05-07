@@ -24,7 +24,6 @@ def train_agent(
         if is_render:
             render(env)
         total_reward = 0
-        step = 0
 
         while not time_step.last():
 
@@ -41,11 +40,12 @@ def train_agent(
 
             agent.store_transition(state, action, end, reward, state_)
 
-            if step > 2000 and step % 50 == 0:
-                agent.learn()
+            agent.learn()
 
-            step += 1
             total_reward += reward
+
+        if episode % 100 == 0:
+            agent.save_weights("weights_{}.h5".format(episode))
 
         print(episode, total_reward)
         episode += 1

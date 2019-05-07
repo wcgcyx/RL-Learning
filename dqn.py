@@ -124,6 +124,13 @@ class Agent:
         q_target.set_weights(q_evaluate.get_weights())
         return q_evaluate, q_target
 
+    def save_weights(self, filename):
+        self.q_evaluate.save_weights(filename)
+
+    def load_weights(self, filename):
+        self.q_evaluate.load_weights(filename)
+        self.q_target.load_weights(filename)
+
 
 def convert_state(state):
     result = []
