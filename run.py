@@ -41,7 +41,7 @@ def train_agent(
 
             agent.store_transition(state, action, end, reward, state_)
 
-            if step > 200 and step % 5 == 0:
+            if step > 2000 and step % 50 == 0:
                 agent.learn()
 
             step += 1
@@ -54,4 +54,4 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    train_agent("cartpole", "balance", 1000, is_render=False)
+    train_agent("cartpole", "balance_sparse", 1000, is_render=False)
