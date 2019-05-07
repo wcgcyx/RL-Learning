@@ -112,13 +112,15 @@ class Agent:
     def _build_network(self):
         # Create q-evaluate
         q_evaluate = Sequential()
-        q_evaluate.add(Dense(64, input_dim=self.feature_number, activation='relu'))
+        q_evaluate.add(Dense(32, input_dim=self.feature_number, activation='relu'))
+        q_evaluate.add(Dense(32, activation='relu'))
         q_evaluate.add(Dense(32, activation='relu'))
         q_evaluate.add(Dense(self.action_size, activation='linear'))
         q_evaluate.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
         # Create q-target
         q_target = Sequential()
-        q_target.add(Dense(64, input_dim=self.feature_number, activation='relu'))
+        q_target.add(Dense(32, input_dim=self.feature_number, activation='relu'))
+        q_target.add(Dense(32, activation='relu'))
         q_target.add(Dense(32, activation='relu'))
         q_target.add(Dense(self.action_size, activation='linear'))
         q_target.set_weights(q_evaluate.get_weights())

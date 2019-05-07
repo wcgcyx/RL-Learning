@@ -15,10 +15,12 @@ def test_agent(
 
     for weight in weights:
 
-        print("Weight {}".format(weight))
         agent = Agent(action_spec, observation_spec)
         agent.e_greedy = 0
-        agent.load_weights("weights_" + weight + ".h5")
+
+        filename = "weights_{}.h5".format(weight)
+        print("Load " + filename)
+        agent.load_weights(filename)
 
         time_step = env.reset()
         render(env)
