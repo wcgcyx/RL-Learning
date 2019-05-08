@@ -18,7 +18,7 @@ def test_agent(
         agent = Agent(action_spec, observation_spec)
         agent.e_greedy = 0
 
-        filename = "weights_{}.h5".format(weight)
+        filename = "{}_{}_weights_{}.h5".format(domain, task, weight)
         print("Load " + filename)
         agent.load_weights(filename)
 

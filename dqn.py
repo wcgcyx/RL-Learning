@@ -18,7 +18,7 @@ class Agent:
             e_greedy_start=1.0,
             e_greedy_decay=0.995,
             e_greedy_min=0.05,
-            memory_size=10000,
+            memory_size=2000,
             batch_size=64,
             replace_q_target_iteration=200,
             ):

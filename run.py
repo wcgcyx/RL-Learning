@@ -44,8 +44,8 @@ def train_agent(
 
             total_reward += reward
 
-        if episode != 0 and episode % 100 == 0:
-            agent.save_weights("weights_{}.h5".format(episode))
+        if episode % 50 == 0:
+            agent.save_weights("{}_{}_weights_{}.h5".format(domain, task, episode))
             print("Weights saved.")
 
         print(episode, total_reward)
