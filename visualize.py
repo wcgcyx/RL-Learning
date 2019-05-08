@@ -1,5 +1,5 @@
 from dm_control import suite
-from dqn import Agent
+from double_dqn import Agent
 from display import render
 
 
@@ -18,7 +18,7 @@ def test_agent(
         agent = Agent(action_spec, observation_spec)
         agent.e_greedy = 0
 
-        filename = "{}_{}_weights_{}.h5".format(domain, task, weight)
+        filename = "{}_{}_{}_weights_{}.h5".format(agent, domain, task, weight)
         print("Load " + filename)
         agent.load_weights(filename)
 
@@ -45,4 +45,4 @@ def test_agent(
 
 if __name__ == "__main__":
     test_agent("cartpole", "balance_sparse",
-               ["100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"])
+               ["0", "50", "100", "150", "200", "250"])

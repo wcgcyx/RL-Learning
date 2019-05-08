@@ -68,6 +68,7 @@ class Agent:
         state_2 = batch_memory[:, -self.feature_number:]
 
         q_predict = self.q_evaluate.predict(state_1)
+        q_predict_actions = np.argmax(self.q_evaluate.predict(state_2), axis=1)
         q_future = self.q_target.predict(state_2)
 
         # Make a copy of the prediction
@@ -77,7 +78,7 @@ class Agent:
         for i in range(batch_size):
             target[i, actions[i]] = reward[i] \
                 if end[i] == 1 else reward[i] + \
-                                    self.discount_factor * np.max(q_future[i])
+                                    self.discount_factor * q_future[i, q_predict_actions[i]]
 
         # Training
         self.q_evaluate.fit(x=state_1, y=target, epochs=1, verbose=0)
@@ -134,7 +135,7 @@ class Agent:
         self.q_target.load_weights(filename)
 
     def __str__(self):
-        return "dqn"
+        return "double_dqn"
 
 
 def convert_state(state):

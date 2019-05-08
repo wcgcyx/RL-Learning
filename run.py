@@ -1,6 +1,7 @@
 from dm_control import suite
-from dqn import Agent
+from double_dqn import Agent
 from display import render
+import matplotlib.pyplot as plt
 
 
 def train_agent(
@@ -8,6 +9,10 @@ def train_agent(
         task,
         max_episode,
         is_render=False):
+
+    # Used to plot reward function
+    episodes_plot = []
+    total_rewards_plot = []
 
     env = suite.load(domain, task, visualize_reward=True)
 
@@ -45,14 +50,25 @@ def train_agent(
             total_reward += reward
 
         if episode % 50 == 0:
-            agent.save_weights("{}_{}_weights_{}.h5".format(domain, task, episode))
+            agent.save_weights("{}_{}_{}_weights_{}.h5".format(agent, domain, task, episode))
             print("Weights saved.")
 
         print(episode, total_reward)
+
+        episodes_plot.append(episode)
+        total_rewards_plot.append(total_reward)
+
         episode += 1
 
     env.close()
 
+    fig = plt.gcf()
+    plt.plot(episodes_plot, total_rewards_plot, 'ro')
+    plt.show()
+    plt.draw()
+    fig.savefig("{}_{}_{}_reward_plot.png".format(agent, domain, task), dpi=100)
+    print("Plot saved.")
+
 
 if __name__ == "__main__":
-    train_agent("cartpole", "balance_sparse", 1000, is_render=False)
+    train_agent("cartpole", "balance_sparse", 250, is_render=False)
