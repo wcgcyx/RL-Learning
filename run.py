@@ -1,5 +1,5 @@
 from dm_control import suite
-from double_dqn import Agent
+from double_dqn_pri_replay import Agent
 from display import render
 import matplotlib.pyplot as plt
 
@@ -45,7 +45,8 @@ def train_agent(
 
             agent.store_transition(state_1=state, action=action, reward=reward, end=end, state_2=state_)
 
-            agent.learn()
+            if episode > 0:
+                agent.learn()
 
             total_reward += reward
 
@@ -64,11 +65,10 @@ def train_agent(
 
     fig = plt.gcf()
     plt.plot(episodes_plot, total_rewards_plot, 'ro')
-    plt.show()
     plt.draw()
     fig.savefig("{}_{}_{}_reward_plot.png".format(agent, domain, task), dpi=100)
     print("Plot saved.")
 
 
 if __name__ == "__main__":
-    train_agent("cartpole", "balance_sparse", 250, is_render=False)
+    train_agent("pendulum", "swingup", 250, is_render=False)

@@ -8,3 +8,5 @@ venv/
 *.h5
 
 checkpoint
+
+*.png
