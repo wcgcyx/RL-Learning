@@ -1,7 +1,6 @@
 from dm_control import suite
-from double_dqn_pri_replay import Agent
-from display import render
-import matplotlib.pyplot as plt
+from ddpg import Agent
+from utils import render
 
 
 def train_agent(
@@ -9,10 +8,6 @@ def train_agent(
         task,
         max_episode,
         is_render=False):
-
-    # Used to plot reward function
-    episodes_plot = []
-    total_rewards_plot = []
 
     env = suite.load(domain, task, visualize_reward=True)
 
@@ -37,8 +32,10 @@ def train_agent(
             action = agent.choose_action(state)
 
             time_step = env.step(action)
+
             if is_render:
                 render(env)
+
             state_ = time_step.observation
             reward = time_step.reward
             end = 1 if time_step.last() else 0
@@ -50,25 +47,18 @@ def train_agent(
 
             total_reward += reward
 
-        if episode % 50 == 0:
-            agent.save_weights("{}_{}_{}_weights_{}.h5".format(agent, domain, task, episode))
-            print("Weights saved.")
-
         print(episode, total_reward)
 
-        episodes_plot.append(episode)
-        total_rewards_plot.append(total_reward)
+        if episode % 50 == 0:
+            agent.save_weights(domain, task)
+            print("Weights saved.")
 
         episode += 1
 
     env.close()
 
-    fig = plt.gcf()
-    plt.plot(episodes_plot, total_rewards_plot, 'ro')
-    plt.draw()
-    fig.savefig("{}_{}_{}_reward_plot.png".format(agent, domain, task), dpi=100)
-    print("Plot saved.")
+    print("Training finished.")
 
 
 if __name__ == "__main__":
-    train_agent("pendulum", "swingup", 250, is_render=False)
+    train_agent("reacher", "easy", 500, is_render=True)
