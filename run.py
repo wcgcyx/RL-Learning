@@ -1,5 +1,5 @@
 from dm_control import suite
-from ddpg import Agent
+from td3 import Agent
 from utils import render
 
 
@@ -49,7 +49,7 @@ def train_agent(
 
         print(episode, total_reward)
 
-        if episode % 50 == 0:
+        if episode != 0 and episode % 50 == 0:
             agent.save_weights(domain, task)
             print("Weights saved.")
 
@@ -61,4 +61,4 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    train_agent("reacher", "easy", 500, is_render=True)
+    train_agent("reacher", "easy", 500, is_render=False)
