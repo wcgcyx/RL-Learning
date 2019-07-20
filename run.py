@@ -1,5 +1,5 @@
 from dm_control import suite
-from td3 import Agent
+from sac import Agent
 from utils import render
 
 
@@ -61,4 +61,4 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    train_agent("reacher", "easy", 500, is_render=False)
+    train_agent("cartpole", "balance", 500, is_render=False)

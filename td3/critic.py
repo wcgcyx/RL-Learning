@@ -52,17 +52,17 @@ class Critic:
     def __build_net(self):
         state_input = Input(shape=[self.state_dim])
         action_input = Input(shape=[self.action_dim])
-        layer1 = Dense(400, input_dim=self.state_dim, activation='relu',
+        combine_input = Concatenate(axis=-1)([state_input, action_input])
+        layer1 = Dense(400, activation='relu',
                        kernel_initializer=RandomUniform(minval=-1.0 / math.sqrt(self.state_dim),
                                                         maxval=1.0 / math.sqrt(self.state_dim)),
                        bias_initializer=RandomUniform(minval=-1.0 / math.sqrt(self.state_dim),
-                                                      maxval=1.0 / math.sqrt(self.state_dim)))(state_input)
-        merge = Concatenate(axis=-1)([Flatten()(layer1), action_input])
-        layer2 = Dense(300, input_dim=self.state_dim, activation='relu',
+                                                      maxval=1.0 / math.sqrt(self.state_dim)))(combine_input)
+        layer2 = Dense(300, activation='relu',
                        kernel_initializer=RandomUniform(minval=-1.0 / math.sqrt(400),
                                                         maxval=1.0 / math.sqrt(400)),
                        bias_initializer=RandomUniform(minval=-1.0 / math.sqrt(400),
-                                                      maxval=1.0 / math.sqrt(400)))(merge)
+                                                      maxval=1.0 / math.sqrt(400)))(layer1)
         output = Dense(1, activation='linear',
                        kernel_initializer=RandomUniform(minval=-3e-3, maxval=3e-3),
                        bias_initializer=RandomUniform(minval=-3e-3, maxval=3e-3))(layer2)

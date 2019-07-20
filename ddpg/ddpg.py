@@ -17,7 +17,7 @@ class Agent:
             tau=0.001,
             memory_size=100000,
             batch_size=64,
-            action_noise=0.1):
+            action_noise=1):
         self.action_dim = np.product(action_spec.shape)
         self.state_dim = 0
         for _, item in observation_spec.items():
@@ -25,18 +25,16 @@ class Agent:
 
         self.discount_factor=discount_factor
         self.actor = Actor(state_dim=self.state_dim, action_dim=self.action_dim,
-                           learning_rate=actor_learning_rate, tau=tau)
+                           learning_rate=actor_learning_rate, tau=tau, action_noise=action_noise)
         self.critic = Critic(state_dim=self.state_dim, action_dim=self.action_dim,
                              learning_rate=critic_learning_rate, tau=tau)
 
         self.memory = deque(maxlen=memory_size)
         self.batch_size = batch_size
-        self.action_noise = action_noise
 
     def choose_action(self, state):
         state = convert_state(state)[np.newaxis, :]
-        action = self.actor.predict(state) + self.action_noise * np.random.randn(self.action_dim)
-        return np.clip(action, -1, 1)
+        return self.actor.predict(state)
 
     def store_transition(self, state_1, action, reward, end, state_2):
         memory = convert_state(state_1)

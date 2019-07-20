@@ -2,7 +2,7 @@ import math
 import tensorflow as tf
 import tensorflow._api.v1.keras.backend as K
 from tensorflow._api.v1.keras.models import Sequential
-from tensorflow._api.v1.keras.layers import Dense
+from tensorflow._api.v1.keras.layers import Dense, GaussianNoise
 from tensorflow._api.v1.keras.initializers import RandomUniform
 
 
@@ -13,11 +13,13 @@ class Actor:
             action_dim,
             state_dim,
             learning_rate,
-            tau):
+            tau,
+            action_noise):
         self.action_dim = action_dim
         self.state_dim = state_dim
         self.learning_rate = learning_rate
         self.tau = tau
+        self.action_noise = action_noise
         # Build network
         self.model = self.__build_net()
         self.target_model = self.__build_net()
@@ -49,11 +51,13 @@ class Actor:
                                                          maxval=1.0 / math.sqrt(self.state_dim)),
                         bias_initializer=RandomUniform(minval=-1.0 / math.sqrt(self.state_dim),
                                                        maxval=1.0 / math.sqrt(self.state_dim))))
+        model.add(GaussianNoise(self.action_noise))
         model.add(Dense(300, activation='relu',
                         kernel_initializer=RandomUniform(minval=-1.0 / math.sqrt(400),
                                                          maxval=1.0 / math.sqrt(400)),
                         bias_initializer=RandomUniform(minval=-1.0 / math.sqrt(400),
                                                        maxval=1.0 / math.sqrt(400))))
+        model.add(GaussianNoise(self.action_noise))
         model.add(Dense(self.action_dim, activation='tanh',
                         kernel_initializer=RandomUniform(minval=-3e-3, maxval=3e-3),
                         bias_initializer=RandomUniform(minval=-3e-3, maxval=3e-3)))
