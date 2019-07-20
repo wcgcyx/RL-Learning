@@ -1,7 +1,6 @@
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.layers import Dense, Input, Concatenate
 from tensorflow.python.keras.optimizers import Adam
-import tensorflow._api.v1.keras.backend as K
 
 
 class Critic:
@@ -24,12 +23,6 @@ class Critic:
         self.v = self.__build_v_net()
         self.target_v = self.__build_v_net()
         self.target_v.set_weights(self.v.get_weights())
-        # Get action gradients calculator (From open ai spinning up it uses gradient from critic q network 1)
-        self.action_grads = K.function(inputs=[self.q_1.input],
-                                       outputs=[K.gradients(self.q_1.output, [self.q_1.input[1]])])
-
-    def get_action_grads(self, states, actions):
-        return self.action_grads([states, actions])
 
     def predict_q(self, state, action):
         return self.q_1.predict([state, action]), self.q_2.predict([state, action])

@@ -71,8 +71,7 @@ class Agent:
         self.critic.learn_v(state_1, target_v_value)
 
         # Training policy network
-        q_action_grads = self.critic.get_action_grads(state_1, new_action)
-        self.actor.learn(state_1, q_action_grads)
+        self.actor.learn(state_1, q_values)
 
         # Update target v
         self.critic.update_target_v()
