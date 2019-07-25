@@ -1,67 +1,94 @@
-from tensorflow.python.keras.models import Model
-from tensorflow.python.keras.layers import Dense, Input, Concatenate
-from tensorflow.python.keras.optimizers import Adam
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+
+# Get device
+use_cuda = torch.cuda.is_available()
+device = torch.device("cuda" if use_cuda else "cpu")
 
 
 class Critic:
 
     def __init__(
             self,
-            action_dim,
             state_dim,
-            learning_rate,
+            action_dim,
+            lr,
             tau):
-        # Critic in SAC has four networks:
-        # Two Q Network, a V Network and a Target-V Network
-        self.action_dim = action_dim
-        self.state_dim = state_dim
-        self.learning_rate = learning_rate
         self.tau = tau
-        # Build network
-        self.q_1 = self.__build_q_net()
-        self.q_2 = self.__build_q_net()
-        self.v = self.__build_v_net()
-        self.target_v = self.__build_v_net()
-        self.target_v.set_weights(self.v.get_weights())
+        # Build Networks
+        # SAC has four networks in critic
+        # Two Q-Networks
+        self.q_net_1 = QNetwork(state_dim, action_dim).to(device)
+        self.q_net_2 = QNetwork(state_dim, action_dim).to(device)
+        self.q_optimizer_1 = optim.Adam(self.q_net_1.parameters(), lr=lr)
+        self.q_optimizer_2 = optim.Adam(self.q_net_2.parameters(), lr=lr)
+        # One V-Network
+        self.v_net = VNetwork(state_dim).to(device)
+        self.v_optimizer = optim.Adam(self.v_net.parameters(), lr=lr)
+        # One Target-V Network
+        self.target_v_net = VNetwork(state_dim).to(device)
+        for target_param, param in zip(self.target_v_net.parameters(), self.v_net.parameters()):
+            target_param.data.copy_(param.data)
 
     def predict_q(self, state, action):
-        return self.q_1.predict([state, action]), self.q_2.predict([state, action])
+        return self.q_net_1.forward(state, action), self.q_net_2.forward(state, action)
 
     def predict_v(self, state):
-        return self.v.predict([state])
+        return self.v_net.forward(state)
 
     def predict_v_target(self, state):
-        return self.target_v.predict([state])
+        return self.target_v_net.forward(state)
 
-    def learn_q(self, states, actions, q_targets):
-        self.q_1.train_on_batch([states, actions], q_targets)
-        self.q_2.train_on_batch([states, actions], q_targets)
+    def learn_q(self, q_loss_1, q_loss_2):
+        self.q_optimizer_1.zero_grad()
+        q_loss_1.backward()
+        self.q_optimizer_1.step()
+        self.q_optimizer_2.zero_grad()
+        q_loss_2.backward()
+        self.q_optimizer_2.step()
 
-    def learn_v(self, states, v_targets):
-        self.v.train_on_batch([states], v_targets)
+    def learn_v(self, v_loss):
+        self.v_optimizer.zero_grad()
+        v_loss.backward()
+        self.v_optimizer.step()
 
     def update_target_v(self):
-        weights, target_weights = self.v.get_weights(), self.target_v.get_weights()
-        for i in range(len(weights)):
-            target_weights[i] = self.tau * weights[i] + (1 - self.tau) * target_weights[i]
-        self.target_v.set_weights(target_weights)
+        for target_param, param in zip(self.target_v_net.parameters(), self.v_net.parameters()):
+            target_param.data.copy_(
+                target_param.data * (1.0 - self.tau) + param.data * self.tau
+            )
 
-    def __build_q_net(self):
-        state_input = Input(shape=[self.state_dim])
-        action_input = Input(shape=[self.action_dim])
-        combine_input = Concatenate(axis=-1)([state_input, action_input])
-        layer1 = Dense(400, activation='relu')(combine_input)
-        layer2 = Dense(300, activation='relu')(layer1)
-        output = Dense(1, activation='linear')(layer2)
-        model = Model([state_input, action_input], output)
-        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
-        return model
 
-    def __build_v_net(self):
-        state_input = Input(shape=[self.state_dim])
-        layer1 = Dense(400, activation='relu')(state_input)
-        layer2 = Dense(300, activation='relu')(layer1)
-        output = Dense(1, activation='linear')(layer2)
-        model = Model([state_input], output)
-        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
-        return model
+class QNetwork(nn.Module):
+
+    def __init__(self, state_dim, action_dim):
+        super(QNetwork, self).__init__()
+
+        self.layer1 = nn.Linear(state_dim + action_dim, 400)
+        self.layer2 = nn.Linear(400, 300)
+        self.layer3 = nn.Linear(300, 1)
+
+    def forward(self, state, action):
+        x = torch.cat([state, action], 1)
+        x = F.relu(self.layer1(x))
+        x = F.relu(self.layer2(x))
+        x = self.layer3(x)
+        return x
+
+
+class VNetwork(nn.Module):
+
+    def __init__(self, state_dim):
+        super(VNetwork, self).__init__()
+
+        self.layer1 = nn.Linear(state_dim, 400)
+        self.layer2 = nn.Linear(400, 300)
+        self.layer3 = nn.Linear(300, 1)
+
+    def forward(self, state):
+        x = F.relu(self.layer1(state))
+        x = F.relu(self.layer2(x))
+        x = self.layer3(x)
+        return x

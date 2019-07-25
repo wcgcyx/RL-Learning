@@ -1,92 +1,76 @@
+import torch
+import torch.nn as nn
 import numpy as np
-import random
-from collections import deque
 from .actor import Actor
 from .critic import Critic
+from .memory import ReplayBuffer
+
+# Get device
+use_cuda = torch.cuda.is_available()
+device = torch.device("cuda" if use_cuda else "cpu")
 
 
 class Agent:
 
     def __init__(
             self,
-            action_spec,
-            observation_spec,
-            actor_learning_rate=0.0001,
-            critic_learning_rate=0.001,
-            discount_factor=0.99,
-            tau=0.001,
-            min_std=-20,
-            max_std=2,
-            epsilon=0.000001,
-            memory_size=100000,
-            batch_size=64):
-        self.action_dim = np.product(action_spec.shape)
-        self.state_dim = 0
-        for _, item in observation_spec.items():
-            self.state_dim += np.product(item.shape)
+            state_dim,
+            action_dim,
+            lr=3e-4,
+            discount=0.99,
+            tau=1e-2,
+            alpha=0.2,
+            log_std_min=-20,
+            log_std_max=2,
+            memory_size=1000000,
+            batch_size=128):
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.discount = discount
+        self.alpha = alpha
 
-        self.discount_factor = discount_factor
-        self.actor = Actor(action_dim=self.action_dim, state_dim=self.state_dim,
-                           learning_rate=actor_learning_rate, min_std=min_std,
-                           max_std=max_std, epsilon=epsilon)
-        self.critic = Critic(action_dim=self.action_dim, state_dim=self.state_dim,
-                             learning_rate=critic_learning_rate, tau=tau)
+        self.actor = Actor(state_dim, action_dim, lr, log_std_min, log_std_max)
+        self.critic = Critic(state_dim, action_dim, lr, tau)
 
-        self.memory = deque(maxlen=memory_size)
+        self.memory = ReplayBuffer(memory_size)
         self.batch_size = batch_size
 
     def choose_action(self, state):
-        state = convert_state(state)
-        return self.actor.predict(state)
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)
+        return self.actor.get_action(state)
 
-    def store_transition(self, state_1, action, reward, end, state_2):
-        memory = convert_state(state_1)
-        memory = np.append(memory, action)
-        memory = np.append(memory, reward)
-        memory = np.append(memory, end)
-        memory = np.append(memory, convert_state(state_2))
-        self.memory.append(memory)
+    def store_transition(self, state, action, reward, next_state, end):
+        self.memory.push(state, action, reward, next_state, end)
 
     def learn(self):
-        if len(self.memory) > self.batch_size:
-            batch_memory = np.array(random.sample(list(self.memory), self.batch_size))
-        else:
-            batch_memory = np.array(self.memory)
-        state_1 = batch_memory[:, :self.state_dim]
-        actions = batch_memory[:, self.state_dim:self.state_dim + self.action_dim]
-        reward = batch_memory[:, self.state_dim + self.action_dim]
-        end = batch_memory[:, self.state_dim + self.action_dim + 1]
-        state_2 = batch_memory[:, -self.state_dim:]
+        state, action, reward, next_state, end = self.memory.sample(self.batch_size)
 
-        # Training q networks
-        target_value = self.critic.predict_v_target(state_2)
-        target_q_value = reward + (1 - end) * self.discount_factor * target_value
-        self.critic.learn_q(state_1, actions, target_q_value)
+        state = torch.FloatTensor(state).to(device)
+        action = torch.FloatTensor(action).to(device)
+        reward = torch.FloatTensor(reward).unsqueeze(1).to(device)
+        next_state = torch.FloatTensor(next_state).to(device)
+        end = torch.FloatTensor(np.float32(end)).unsqueeze(1).to(device)
 
-        # Training v network
-        new_action, log_prob = self.actor.evaluate(state_1)
-        q_values_1, q_values_2 = self.critic.predict_q(state_1, new_action)
-        q_values = np.minimum(q_values_1, q_values_2)
-        target_v_value = q_values - log_prob
-        self.critic.learn_v(state_1, target_v_value)
+        # Training Q Networks
+        predicted_q_value_1, predicted_q_value_2 = self.critic.predict_q(state, action)
+        predicted_v_target = self.critic.predict_v_target(next_state)
+        target_q_value = reward + (1 - end) * self.discount * predicted_v_target
+        q_loss_1 = nn.MSELoss()(predicted_q_value_1, target_q_value.detach())
+        q_loss_2 = nn.MSELoss()(predicted_q_value_2, target_q_value.detach())
+        self.critic.learn_q(q_loss_1, q_loss_2)
 
-        # Training policy network
-        self.actor.learn(state_1, q_values)
+        # Training V Network
+        new_action, log_prob = self.actor.predict(state)
+        predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, new_action)
+        predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
+        target_v_value = predicted_new_q_value - self.alpha * log_prob
+        predicted_v_value = self.critic.predict_v(state)
+        v_loss = nn.MSELoss()(predicted_v_value, target_v_value.detach())
+        self.critic.learn_v(v_loss)
 
-        # Update target v
+        # Training Policy Network
+        policy_loss = (self.alpha * log_prob - predicted_new_q_value).mean()
+        self.actor.learn(policy_loss)
+
+        # Updating Target-V Network
         self.critic.update_target_v()
-
-    def save_weights(self, domain, task):
-        pass
-
-    def load_weights(self, domain, task):
-        pass
-
-
-def convert_state(state):
-    result = []
-
-    for _, item in state.items():
-        result.extend(item.flatten())
-
-    return np.array(result)

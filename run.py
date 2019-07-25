@@ -1,57 +1,48 @@
-from dm_control import suite
 from sac import Agent
-from utils import render
+from utils import get_normalized_env
 
 
 def train_agent(
-        domain,
         task,
         max_episode,
         is_render=False):
 
-    env = suite.load(domain, task, visualize_reward=True)
+    env = get_normalized_env(task)
 
-    action_spec = env.action_spec()
-    observation_spec = env.observation_spec()
+    state_dim = env.observation_space.shape[0]
+    action_dim = env.action_space.shape[0]
 
-    agent = Agent(action_spec, observation_spec)
+    agent = Agent(state_dim, action_dim)
 
     episode = 0
+    frame = 0
 
     while episode <= max_episode:
 
-        time_step = env.reset()
-        if is_render:
-            render(env)
+        state = env.reset()
         total_reward = 0
 
-        while not time_step.last():
-
-            state = time_step.observation
+        for step in range(500):
 
             action = agent.choose_action(state)
-
-            time_step = env.step(action)
+            next_state, reward, end, _ = env.step(action.numpy())
 
             if is_render:
-                render(env)
+                env.render()
 
-            state_ = time_step.observation
-            reward = time_step.reward
-            end = 1 if time_step.last() else 0
+            agent.store_transition(state, action, reward, next_state, end)
 
-            agent.store_transition(state_1=state, action=action, reward=reward, end=end, state_2=state_)
+            state = next_state
+            total_reward += reward
+            frame += 1
 
-            if episode > 0:
+            if len(agent.memory) > agent.batch_size:
                 agent.learn()
 
-            total_reward += reward
+            if end:
+                break
 
-        print(episode, total_reward)
-
-        if episode != 0 and episode % 50 == 0:
-            agent.save_weights(domain, task)
-            print("Weights saved.")
+        print(episode, frame, total_reward)
 
         episode += 1
 
@@ -61,4 +52,4 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    train_agent("cartpole", "balance", 500, is_render=False)
+    train_agent(task="Pendulum-v0", max_episode=500, is_render=False)
