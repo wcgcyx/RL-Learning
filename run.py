@@ -36,13 +36,17 @@ def train_agent(
             total_reward += reward
             frame += 1
 
-            if len(agent.memory) > agent.batch_size:
+            if frame > 200:
                 agent.learn()
 
             if end:
                 break
 
         print(episode, frame, total_reward)
+
+        if episode != 0 and episode % 50 == 0:
+            agent.save_weighs(str(episode))
+            print("Weights saved.")
 
         episode += 1
 

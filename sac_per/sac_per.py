@@ -40,10 +40,20 @@ class Agent:
         return self.actor.get_action(state)
 
     def store_transition(self, state, action, reward, next_state, end):
-        self.memory.push(state, action, reward, next_state, end)
+        state_ = np.expand_dims(state, axis=0)
+        state_ = torch.FloatTensor(state_).to(device)
+        new_action, log_prob = self.actor.predict(state_)
+        predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state_, new_action)
+        predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
+        target_v_value = predicted_new_q_value - self.alpha * log_prob
+        predicted_v_value = self.critic.predict_v(state_)
+        error = target_v_value - predicted_v_value
+        error = abs(error.cpu()[0].detach())
+        self.memory.push(error, (state, action, reward, next_state, end))
 
     def learn(self):
-        state, action, reward, next_state, end = self.memory.sample(self.batch_size)
+        batch, idxs, is_weights = self.memory.sample(self.batch_size)
+        state, action, reward, next_state, end = map(np.stack, zip(*batch))
 
         state = torch.FloatTensor(state).to(device)
         action = torch.FloatTensor(action).to(device)
@@ -66,6 +76,13 @@ class Agent:
         target_v_value = predicted_new_q_value - self.alpha * log_prob
         predicted_v_value = self.critic.predict_v(state)
         v_loss = nn.MSELoss()(predicted_v_value, target_v_value.detach())
+
+        errors = torch.abs(predicted_v_value - target_v_value).cpu().detach().numpy()
+
+        for i in range(self.batch_size):
+            idx = idxs[i]
+            self.memory.update(idx, errors[i])
+
         self.critic.learn_v(v_loss)
 
         # Training Policy Network
@@ -76,15 +93,15 @@ class Agent:
         self.critic.update_target_v()
 
     def save_weighs(self, identifier):
-        torch.save(self.actor.policy_net.state_dict(), 'sac_actor_policy_net_' + identifier + '.weights')
-        torch.save(self.critic.q_net_1.state_dict(), 'sac_critic_q_net_1_' + identifier + '.weights')
-        torch.save(self.critic.q_net_2.state_dict(), 'sac_critic_q_net_2_' + identifier + '.weights')
-        torch.save(self.critic.v_net.state_dict(), 'sac_critic_v_net_' + identifier + '.weights')
-        torch.save(self.critic.target_v_net.state_dict(), 'sac_critic_target_v_net_' + identifier + '.weights')
+        torch.save(self.actor.policy_net.state_dict(), 'sac_per_actor_policy_net_' + identifier + '.weights')
+        torch.save(self.critic.q_net_1.state_dict(), 'sac_per_critic_q_net_1_' + identifier + '.weights')
+        torch.save(self.critic.q_net_2.state_dict(), 'sac_per_critic_q_net_2_' + identifier + '.weights')
+        torch.save(self.critic.v_net.state_dict(), 'sac_per_critic_v_net_' + identifier + '.weights')
+        torch.save(self.critic.target_v_net.state_dict(), 'sac_per_critic_target_v_net_' + identifier + '.weights')
 
     def load_weights(self, identifier):
-        self.actor.policy_net.load_state_dict(torch.load('sac_actor_policy_net_' + identifier + '.weights'))
-        self.critic.q_net_1.load_state_dict(torch.load('sac_critic_q_net_1_' + identifier + '.weights'))
-        self.critic.q_net_2.load_state_dict(torch.load('sac_critic_q_net_2_' + identifier + '.weights'))
-        self.critic.v_net.load_state_dict(torch.load('sac_critic_v_net_' + identifier + '.weights'))
-        self.critic.target_v_net.load_state_dict(torch.load('sac_critic_target_v_net_' + identifier + '.weights'))
+        self.actor.policy_net.load_state_dict(torch.load('sac_per_actor_policy_net_' + identifier + '.weights'))
+        self.critic.q_net_1.load_state_dict(torch.load('sac_per_critic_q_net_1_' + identifier + '.weights'))
+        self.critic.q_net_2.load_state_dict(torch.load('sac_per_critic_q_net_2_' + identifier + '.weights'))
+        self.critic.v_net.load_state_dict(torch.load('sac_per_critic_v_net_' + identifier + '.weights'))
+        self.critic.target_v_net.load_state_dict(torch.load('sac_per_critic_target_v_net_' + identifier + '.weights'))

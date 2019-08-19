@@ -5,7 +5,7 @@ venv/
 
 \.idea/
 
-*.h5
+*.weights
 
 checkpoint
 
