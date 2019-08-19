@@ -5,7 +5,8 @@ from utils import get_normalized_env
 def train_agent(
         task,
         max_episode,
-        is_render=False):
+        is_render=False,
+        identifier=-1):
 
     env = get_normalized_env(task)
 
@@ -13,6 +14,9 @@ def train_agent(
     action_dim = env.action_space.shape[0]
 
     agent = Agent(state_dim, action_dim)
+
+    if identifier > 0:
+        agent.load_weights(str(identifier))
 
     episode = 0
     frame = 0
@@ -36,7 +40,7 @@ def train_agent(
             total_reward += reward
             frame += 1
 
-            if frame > 200:
+            if episode > 0:
                 agent.learn()
 
             if end:
