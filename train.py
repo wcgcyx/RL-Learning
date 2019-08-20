@@ -52,7 +52,7 @@ def train_agent(
 
         if output_file is not None:
             with open(output_file, "a") as file:
-                file.write("{},{}".format(episode, total_reward))
+                file.write("{},{}\n".format(episode, total_reward))
 
         if episode != 0 and episode % 50 == 0:
             agent.save_weighs(task, str(episode))
