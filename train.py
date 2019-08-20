@@ -6,7 +6,8 @@ def train_agent(
         task,
         max_episode,
         is_render=False,
-        identifier=-1):
+        identifier=-1,
+        output_file=None):
 
     env = get_normalized_env(task)
 
@@ -15,13 +16,14 @@ def train_agent(
 
     agent = Agent(state_dim, action_dim)
 
-    if identifier > 0:
-        agent.load_weights(str(identifier))
-
     episode = 0
     frame = 0
 
-    while episode <= max_episode:
+    if identifier > 0:
+        agent.load_weights(task, str(identifier))
+        episode = identifier + 1
+
+    while episode <= max_episode + identifier + 1:
 
         state = env.reset()
         total_reward = 0
@@ -40,7 +42,7 @@ def train_agent(
             total_reward += reward
             frame += 1
 
-            if episode > 0:
+            if frame > 2 * agent.batch_size:
                 agent.learn()
 
             if end:
@@ -48,8 +50,12 @@ def train_agent(
 
         print(episode, frame, total_reward)
 
+        if output_file is not None:
+            with open(output_file, "a") as file:
+                file.write("{},{}".format(episode, total_reward))
+
         if episode != 0 and episode % 50 == 0:
-            agent.save_weighs(str(episode))
+            agent.save_weighs(task, str(episode))
             print("Weights saved.")
 
         episode += 1
@@ -60,4 +66,4 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    train_agent(task="Pendulum-v0", max_episode=500, is_render=False)
+    train_agent(task="Ant-v2", max_episode=500, is_render=False, identifier=400)

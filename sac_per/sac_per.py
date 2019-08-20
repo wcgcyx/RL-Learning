@@ -92,16 +92,16 @@ class Agent:
         # Updating Target-V Network
         self.critic.update_target_v()
 
-    def save_weighs(self, identifier):
-        torch.save(self.actor.policy_net.state_dict(), 'sac_per_actor_policy_net_' + identifier + '.weights')
-        torch.save(self.critic.q_net_1.state_dict(), 'sac_per_critic_q_net_1_' + identifier + '.weights')
-        torch.save(self.critic.q_net_2.state_dict(), 'sac_per_critic_q_net_2_' + identifier + '.weights')
-        torch.save(self.critic.v_net.state_dict(), 'sac_per_critic_v_net_' + identifier + '.weights')
-        torch.save(self.critic.target_v_net.state_dict(), 'sac_per_critic_target_v_net_' + identifier + '.weights')
+    def save_weighs(self, task, identifier):
+        torch.save(self.actor.policy_net.state_dict(), 'weights_history/' + task + '/sac_per_actor_policy_net_' + identifier + '.weights')
+        torch.save(self.critic.q_net_1.state_dict(), 'weights_history/' + task + '/sac_per_critic_q_net_1_' + identifier + '.weights')
+        torch.save(self.critic.q_net_2.state_dict(), 'weights_history/' + task + '/sac_per_critic_q_net_2_' + identifier + '.weights')
+        torch.save(self.critic.v_net.state_dict(), 'weights_history/' + task + '/sac_per_critic_v_net_' + identifier + '.weights')
+        torch.save(self.critic.target_v_net.state_dict(), 'weights_history/' + task + '/sac_per_critic_target_v_net_' + identifier + '.weights')
 
-    def load_weights(self, identifier):
-        self.actor.policy_net.load_state_dict(torch.load('sac_per_actor_policy_net_' + identifier + '.weights'))
-        self.critic.q_net_1.load_state_dict(torch.load('sac_per_critic_q_net_1_' + identifier + '.weights'))
-        self.critic.q_net_2.load_state_dict(torch.load('sac_per_critic_q_net_2_' + identifier + '.weights'))
-        self.critic.v_net.load_state_dict(torch.load('sac_per_critic_v_net_' + identifier + '.weights'))
-        self.critic.target_v_net.load_state_dict(torch.load('sac_per_critic_target_v_net_' + identifier + '.weights'))
+    def load_weights(self, task, identifier):
+        self.actor.policy_net.load_state_dict(torch.load('weights_history/' + task + '/sac_per_actor_policy_net_' + identifier + '.weights'))
+        self.critic.q_net_1.load_state_dict(torch.load('weights_history/' + task + '/sac_per_critic_q_net_1_' + identifier + '.weights'))
+        self.critic.q_net_2.load_state_dict(torch.load('weights_history/' + task + '/sac_per_critic_q_net_2_' + identifier + '.weights'))
+        self.critic.v_net.load_state_dict(torch.load('weights_history/' + task + '/sac_per_critic_v_net_' + identifier + '.weights'))
+        self.critic.target_v_net.load_state_dict(torch.load('weights_history/' + task + '/sac_per_critic_target_v_net_' + identifier + '.weights'))
