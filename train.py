@@ -1,29 +1,22 @@
-from sac import Agent
+import sys
+from sac import Agent as SAC
+from sac_per import Agent as PER
+from sac_trls import Agent as TRLS
+from sac_trr import Agent as TRR
 from utils import get_normalized_env
 
 
 def train_agent(
-        task,
+        agent,
+        env,
         max_episode,
-        is_render=False,
-        identifier=-1,
-        output_file=None):
-
-    env = get_normalized_env(task)
-
-    state_dim = env.observation_space.shape[0]
-    action_dim = env.action_space.shape[0]
-
-    agent = Agent(state_dim, action_dim)
+        is_render,
+        output_file):
 
     episode = 0
     frame = 0
 
-    if identifier > 0:
-        agent.load_weights(task, str(identifier))
-        episode = identifier + 1
-
-    while episode <= max_episode + identifier + 1:
+    while episode <= max_episode:
 
         state = env.reset()
         total_reward = 0
@@ -54,10 +47,6 @@ def train_agent(
             with open(output_file, "a") as file:
                 file.write("{},{}\n".format(episode, total_reward))
 
-        if episode != 0 and episode % 50 == 0:
-            agent.save_weighs(task, str(episode))
-            print("Weights saved.")
-
         episode += 1
 
     env.close()
@@ -66,4 +55,29 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    train_agent(task="Ant-v2", max_episode=500, is_render=False, identifier=400)
+    if len(sys.argv) != 2:
+        print("Please provide agent name")
+        exit(1)
+    agent_name = sys.argv[1]
+    for i in range(5):
+        environment = get_normalized_env(task="Pendulum-v0")
+        state_dim = environment.observation_space.shape[0]
+        action_dim = environment.action_space.shape[0]
+        if agent_name == 'sac':
+            agent_instance = SAC(state_dim, action_dim)
+        elif agent_name == 'per':
+            agent_instance = PER(state_dim, action_dim)
+        elif agent_name == 'trls':
+            agent_instance = TRLS(state_dim, action_dim)
+        elif agent_name == 'trps':
+            agent_instance = TRLS(state_dim, action_dim)
+        elif agent_name == 'trr':
+            agent_instance = TRR(state_dim, action_dim)
+        else:
+            agent_instance = None
+        if agent_instance is None:
+            print("Not supported agent name")
+            exit(2)
+        file_name = agent_name + '_' + str(i) + '.csv'
+        train_agent(agent_instance, environment, 250, False, file_name)
+    exit(0)

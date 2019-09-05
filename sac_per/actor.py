@@ -22,7 +22,7 @@ class Actor:
         # SAC has one network in critic
         # One Policy-Network
         self.policy_net = PolicyNetwork(state_dim, action_dim, log_std_min, log_std_max).to(device)
-        self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
+        self.policy_optimizer = optim.SGD(self.policy_net.parameters(), lr=lr)
 
     def get_action(self, state):
         action, _ = self.policy_net.predict(state)
