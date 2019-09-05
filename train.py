@@ -1,5 +1,6 @@
 import sys
 from sac import Agent as SAC
+from sac_dpn import Agent as DPN
 from sac_per import Agent as PER
 from sac_trls import Agent as TRLS
 from sac_trr import Agent as TRR
@@ -65,6 +66,8 @@ if __name__ == "__main__":
         action_dim = environment.action_space.shape[0]
         if agent_name == 'sac':
             agent_instance = SAC(state_dim, action_dim)
+        elif agent_name == 'dpn':
+            agent_instance = DPN(state_dim, action_dim)
         elif agent_name == 'per':
             agent_instance = PER(state_dim, action_dim)
         elif agent_name == 'trls':
@@ -76,7 +79,7 @@ if __name__ == "__main__":
         else:
             agent_instance = None
         if agent_instance is None:
-            print("Not supported agent name")
+            print("Unsupported agent name")
             exit(2)
         file_name = agent_name + '_' + str(i) + '.csv'
         train_agent(agent_instance, environment, 250, False, file_name)
