@@ -76,8 +76,9 @@ class Agent:
         z = normal.sample().to(device)
         mean, log_std = self.actor.policy_net.forward(state)
         std = log_std.exp()
-        action = torch.tanh(mean + std * z)
-        old_log_prob = Normal(mean, std).log_prob(mean + std * z) - torch.log(1 - action.pow(2) + 1e-6)
+        old_action_raw = mean + std * z
+        old_action = torch.tanh(old_action_raw)
+        old_log_prob = Normal(mean, std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
         old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
         params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
@@ -87,9 +88,8 @@ class Agent:
 
         for i in range(iterations):
             test_params = params - search_direction * search_size
-            KL = self.get_KL(test_params, old_log_prob, state, z)
+            KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
             if abs(KL) < 0.005:
-                flag = False
                 params = test_params
                 torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
                 # Compute new direction
@@ -103,15 +103,13 @@ class Agent:
         # Updating Target-V Network
         self.critic.update_target_v()
 
-    def get_KL(self, params, old_log_prob, state, z):
+    def get_KL(self, params, old_log_prob, state, old_action_raw, old_action):
         torch.nn.utils.vector_to_parameters(params, self.actor.evaluate_net.parameters())
         mean, log_std = self.actor.evaluate_net.forward(state)
         std = log_std.exp()
-        action = torch.tanh(mean + std * z)
-        new_log_prob = Normal(mean, std).log_prob(mean + std * z) - torch.log(1 - action.pow(2) + 1e-6)
+        new_log_prob = Normal(mean, std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
         new_log_prob = new_log_prob.sum(-1, keepdim=True)
-        old_prob = torch.exp(old_log_prob)
-        KL = old_prob * (old_log_prob - new_log_prob)
+        KL = old_log_prob - new_log_prob
         KL = KL.mean()
         return KL.item()
 
