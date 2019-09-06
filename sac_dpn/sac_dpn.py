@@ -76,6 +76,7 @@ class Agent:
         self.actor.learn(policy_loss)
 
         # Updating Target-V Network
+        self.actor.update_target_policy()
         self.critic.update_target_v()
 
     def save_weighs(self, task, identifier):
