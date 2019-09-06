@@ -85,7 +85,7 @@ class Agent:
         lr = torch.FloatTensor([3e-4]).to(device)
         grad = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters()))
 
-        while True:
+        for i in range(5):
             test_params = params - lr * grad
             KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
             if abs(KL) > 0.005:
