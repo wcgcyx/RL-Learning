@@ -82,14 +82,14 @@ class Agent:
         old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
         params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
-        iterations = 5
+        iterations = 10
         search_size = torch.FloatTensor([0.005]).to(device)
         search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
 
         for i in range(iterations):
             test_params = params - search_direction * search_size
             KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
-            if abs(KL) < 0.005:
+            if abs(KL) < 0.01:
                 params = test_params
                 torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
                 # Compute new direction

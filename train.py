@@ -4,6 +4,7 @@ from sac_dpn import Agent as DPN
 from sac_per import Agent as PER
 from sac_trls import Agent as TRLS
 from sac_trr import Agent as TRR
+from sac_trps import Agent as TRPS
 from utils import get_normalized_env
 
 
@@ -73,7 +74,7 @@ if __name__ == "__main__":
         elif agent_name == 'trls':
             agent_instance = TRLS(state_dim, action_dim)
         elif agent_name == 'trps':
-            agent_instance = TRLS(state_dim, action_dim)
+            agent_instance = TRPS(state_dim, action_dim)
         elif agent_name == 'trr':
             agent_instance = TRR(state_dim, action_dim)
         else:
