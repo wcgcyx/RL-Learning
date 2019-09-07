@@ -3,8 +3,9 @@ from sac import Agent as SAC
 from sac_dpn import Agent as DPN
 from sac_per import Agent as PER
 from sac_trls import Agent as TRLS
-from sac_trr import Agent as TRR
 from sac_trps import Agent as TRPS
+from sac_trlso import Agent as TRLSO
+from sac_trpso import Agent as TRPSO
 from utils import get_normalized_env
 
 
@@ -61,8 +62,9 @@ if __name__ == "__main__":
         print("Please provide agent name")
         exit(1)
     agent_name = sys.argv[1]
+    task = "Pendulum-v0"
     for i in range(5):
-        environment = get_normalized_env(task="Pendulum-v0")
+        environment = get_normalized_env(task)
         state_dim = environment.observation_space.shape[0]
         action_dim = environment.action_space.shape[0]
         if agent_name == 'sac':
@@ -75,13 +77,15 @@ if __name__ == "__main__":
             agent_instance = TRLS(state_dim, action_dim)
         elif agent_name == 'trps':
             agent_instance = TRPS(state_dim, action_dim)
-        elif agent_name == 'trr':
-            agent_instance = TRR(state_dim, action_dim)
+        elif agent_name == 'trlso':
+            agent_instance = TRLSO(state_dim, action_dim)
+        elif agent_name == 'trpso':
+            agent_instance = TRPSO(state_dim, action_dim)
         else:
             agent_instance = None
         if agent_instance is None:
             print("Unsupported agent name")
             exit(2)
-        file_name = agent_name + '_' + str(i) + '.csv'
+        file_name = agent_name + '_' + task + '_' + str(i) + '.csv'
         train_agent(agent_instance, environment, 250, False, file_name)
     exit(0)

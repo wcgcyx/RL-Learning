@@ -82,19 +82,31 @@ class Agent:
         old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
         params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
-        iterations = 10
-        search_size = torch.FloatTensor([0.005]).to(device)
-        search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters()))
+        iterations = 9  # This will check 10 times.
+        search_size = torch.FloatTensor([3e-4]).to(device)
+        search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
 
-        for i in range(iterations):
-            test_params = params - search_direction * search_size
-            KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
-            if abs(KL) <= 0.01:
-                params = test_params
+        test_params = params - search_direction * search_size
+
+        KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
+        if abs(KL) <= 0.01:
+            params = test_params
+            torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
+        else:
             search_size /= 2
-
-        # Update policy parameters
-        torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
+            for i in range(iterations):
+                test_params = params - search_direction * search_size
+                KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
+                if abs(KL) <= 0.01:
+                    params = test_params
+                    torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
+                    # Compute new direction
+                    new_action, log_prob = self.actor.predict(state)
+                    predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, new_action)
+                    predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
+                    policy_loss = (self.alpha * log_prob - predicted_new_q_value).mean()
+                    grad = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
+                search_size /= 2
 
         # Updating Target-V Network
         self.critic.update_target_v()
@@ -108,7 +120,6 @@ class Agent:
         KL = old_log_prob - new_log_prob
         KL = KL.mean()
         return KL.item()
-
 
     def save_weighs(self, task, identifier):
         torch.save(self.actor.policy_net.state_dict(), 'weights_history/' + task + '/sac_actor_policy_net_' + identifier + '.weights')

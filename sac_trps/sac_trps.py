@@ -89,7 +89,7 @@ class Agent:
         for i in range(iterations):
             test_params = params - search_direction * search_size
             KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
-            if abs(KL) < 0.01:
+            if abs(KL) <= 0.01:
                 params = test_params
                 torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
                 # Compute new direction
