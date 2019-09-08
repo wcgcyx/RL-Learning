@@ -58,34 +58,35 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Please provide agent name")
+    if len(sys.argv) != 3:
+        print("Please provide agent name and file id")
         exit(1)
     agent_name = sys.argv[1]
     task = "Pendulum-v0"
-    for i in range(5):
-        environment = get_normalized_env(task)
-        state_dim = environment.observation_space.shape[0]
-        action_dim = environment.action_space.shape[0]
-        if agent_name == 'sac':
-            agent_instance = SAC(state_dim, action_dim)
-        elif agent_name == 'dpn':
-            agent_instance = DPN(state_dim, action_dim)
-        elif agent_name == 'per':
-            agent_instance = PER(state_dim, action_dim)
-        elif agent_name == 'trls':
-            agent_instance = TRLS(state_dim, action_dim)
-        elif agent_name == 'trps':
-            agent_instance = TRPS(state_dim, action_dim)
-        elif agent_name == 'trlso':
-            agent_instance = TRLSO(state_dim, action_dim)
-        elif agent_name == 'trpso':
-            agent_instance = TRPSO(state_dim, action_dim)
-        else:
-            agent_instance = None
-        if agent_instance is None:
-            print("Unsupported agent name")
-            exit(2)
-        file_name = agent_name + '_' + task + '_' + str(i) + '.csv'
-        train_agent(agent_instance, environment, 250, False, file_name)
+    file_id = sys.argv[2]
+    print(agent_name, file_id)
+    environment = get_normalized_env(task)
+    state_dim = environment.observation_space.shape[0]
+    action_dim = environment.action_space.shape[0]
+    if agent_name == 'sac':
+        agent_instance = SAC(state_dim, action_dim)
+    elif agent_name == 'dpn':
+        agent_instance = DPN(state_dim, action_dim)
+    elif agent_name == 'per':
+        agent_instance = PER(state_dim, action_dim)
+    elif agent_name == 'trls':
+        agent_instance = TRLS(state_dim, action_dim)
+    elif agent_name == 'trps':
+        agent_instance = TRPS(state_dim, action_dim)
+    elif agent_name == 'trlso':
+        agent_instance = TRLSO(state_dim, action_dim)
+    elif agent_name == 'trpso':
+        agent_instance = TRPSO(state_dim, action_dim)
+    else:
+        agent_instance = None
+    if agent_instance is None:
+        print("Unsupported agent name")
+        exit(2)
+    file_name = agent_name + '_' + task + '_' + str(file_id) + '.csv'
+    train_agent(agent_instance, environment, 250, False, file_name)
     exit(0)
