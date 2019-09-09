@@ -18,6 +18,7 @@ class Agent:
             state_dim,
             action_dim,
             lr=3e-4,
+            tr=0.01,
             discount=0.99,
             tau=1e-2,
             alpha=0.2,
@@ -27,6 +28,7 @@ class Agent:
             batch_size=128):
         self.state_dim = state_dim
         self.action_dim = action_dim
+        self.tr = tr
         self.discount = discount
         self.alpha = alpha
 
@@ -82,14 +84,27 @@ class Agent:
         old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
         params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
-        iterations = 10
-        search_size = torch.FloatTensor([0.005]).to(device)
         search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
 
-        for i in range(iterations):
+        max_size = torch.FloatTensor([1]).to(device)
+        min_size = torch.FloatTensor([1e-4]).to(device)
+
+        # Search for the start search size
+        search_size = torch.FloatTensor([1e-4]).to(device)
+        while search_size <= max_size:
             test_params = params - search_direction * search_size
             KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
-            if abs(KL) <= 0.02:
+            if abs(KL) > self.tr:
+                search_size /= 2
+                break
+            search_size *= 2
+
+        # Now we have the start search size
+
+        while search_size >= min_size:
+            test_params = params - search_direction * search_size
+            KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
+            if abs(KL) <= self.tr:
                 params = test_params
                 torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
                 # Compute new direction
@@ -112,7 +127,6 @@ class Agent:
         KL = old_log_prob - new_log_prob
         KL = KL.mean()
         return KL.item()
-
 
     def save_weighs(self, task, identifier):
         torch.save(self.actor.policy_net.state_dict(), 'weights_history/' + task + '/sac_actor_policy_net_' + identifier + '.weights')
