@@ -88,5 +88,9 @@ if __name__ == "__main__":
         print("Unsupported agent name")
         exit(2)
     file_name = agent_name + '_' + task + '_' + str(file_id) + '.csv'
+
+    with open(file_name, "a") as file:
+        file.write("{},Round {}\n".format("Episode", str(file_id)))
+
     train_agent(agent_instance, environment, 250, False, file_name)
     exit(0)

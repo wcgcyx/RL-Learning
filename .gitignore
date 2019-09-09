@@ -12,3 +12,5 @@ checkpoint
 *.png
 
 *.csv
+
+*.ps1
