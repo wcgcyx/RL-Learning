@@ -18,7 +18,7 @@ class Agent:
             state_dim,
             action_dim,
             lr=3e-4,
-            tr=0.01,
+            tr=0.005,
             discount=0.99,
             tau=1e-2,
             alpha=0.2,
@@ -86,11 +86,11 @@ class Agent:
         params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
         search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
 
-        max_size = torch.FloatTensor([1]).to(device)
-        min_size = torch.FloatTensor([1e-4]).to(device)
+        max_size = torch.FloatTensor([1e-2]).to(device)
+        min_size = torch.FloatTensor([1e-6]).to(device)
 
         # Search for the start search size
-        search_size = torch.FloatTensor([1e-4]).to(device)
+        search_size = torch.FloatTensor([1e-6]).to(device)
         while search_size <= max_size:
             test_params = params - search_direction * search_size
             KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
@@ -106,14 +106,9 @@ class Agent:
             KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
             if abs(KL) <= self.tr:
                 params = test_params
-                torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
-                # Compute new direction
-                new_action, log_prob = self.actor.predict(state)
-                predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, new_action)
-                predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
-                policy_loss = (self.alpha * log_prob - predicted_new_q_value).mean()
-                search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
             search_size /= 2
+
+        torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
 
         # Updating Target-V Network
         self.critic.update_target_v()
