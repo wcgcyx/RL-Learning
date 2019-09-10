@@ -100,10 +100,15 @@ class Agent:
             search_size *= 2
 
         # Now we have the start search size
+        last_KL = -1
 
         while search_size >= min_size:
             test_params = params - search_direction * search_size
-            KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
+            KL = abs(self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action))
+            if last_KL > KL:
+                break
+            else:
+                last_KL = KL
             if abs(KL) <= self.tr:
                 params = test_params
                 torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
