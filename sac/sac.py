@@ -4,6 +4,7 @@ import numpy as np
 from .actor import Actor
 from .critic import Critic
 from .memory import ReplayBuffer
+from torch.distributions import Normal
 
 # Get device
 use_cuda = torch.cuda.is_available()
@@ -23,7 +24,8 @@ class Agent:
             log_std_min=-20,
             log_std_max=2,
             memory_size=1000000,
-            batch_size=128):
+            batch_size=128,
+            debug_file=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.discount = discount
@@ -34,6 +36,11 @@ class Agent:
 
         self.memory = ReplayBuffer(memory_size)
         self.batch_size = batch_size
+        if debug_file is None:
+            self.debug_file = None
+        else:
+            self.debug_file = open(debug_file, "a")
+            self.debug_file.write("KL,improvement\n")
 
     def choose_action(self, state):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
@@ -68,12 +75,51 @@ class Agent:
         v_loss = nn.MSELoss()(predicted_v_value, target_v_value.detach())
         self.critic.learn_v(v_loss)
 
+        if self.debug_file is not None:
+            z = Normal(0, 1).sample().to(device)
+            mean, log_std = self.actor.policy_net.forward(state)
+            std = log_std.exp()
+            old_action_raw = mean + std * z
+            old_action = torch.tanh(old_action_raw)
+            old_log_prob = Normal(mean, std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
+            old_log_prob = old_log_prob.sum(-1, keepdim=True)
+            old_reward = self.get_reward(state)
+
         # Training Policy Network
         policy_loss = (self.alpha * log_prob - predicted_new_q_value).mean()
         self.actor.learn(policy_loss)
 
+        if self.debug_file is not None:
+            KL = self.get_KL(torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()),
+                             old_log_prob, state, old_action_raw, old_action)
+            new_reward = self.get_reward(state)
+            self.debug_file.write("{},{}\n".format(abs(KL), new_reward - old_reward))
+
         # Updating Target-V Network
         self.critic.update_target_v()
+
+    def get_reward(self, state):
+        same_z = Normal(0, 1).sample()
+        mean, log_std = self.actor.policy_net.forward(state)
+        std = log_std.exp()
+        action_raw = mean + std * same_z
+        action = torch.tanh(action_raw)
+        log_prob = Normal(mean, std).log_prob(action_raw) - torch.log(1 - action.pow(2) + 1e-6)
+        log_prob = log_prob.sum(-1, keepdim=True)
+        predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, action)
+        predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
+        loss = (self.alpha * log_prob - predicted_new_q_value).mean().abs()
+        return loss.item()
+
+    def get_KL(self, params, old_log_prob, state, old_action_raw, old_action):
+        torch.nn.utils.vector_to_parameters(params, self.actor.evaluate_net.parameters())
+        mean, log_std = self.actor.evaluate_net.forward(state)
+        std = log_std.exp()
+        new_log_prob = Normal(mean, std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
+        new_log_prob = new_log_prob.sum(-1, keepdim=True)
+        KL = old_log_prob - new_log_prob
+        KL = KL.mean()
+        return KL.item()
 
     def save_weighs(self, task, identifier):
         torch.save(self.actor.policy_net.state_dict(), 'weights_history/' + task + '/sac_actor_policy_net_' + identifier + '.weights')

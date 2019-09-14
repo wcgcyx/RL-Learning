@@ -1,11 +1,6 @@
 import sys
 from sac import Agent as SAC
-from sac_dpn import Agent as DPN
-from sac_per import Agent as PER
-from sac_trls import Agent as TRLS
 from sac_trps import Agent as TRPS
-from sac_trlso import Agent as TRLSO
-from sac_trpso import Agent as TRPSO
 from utils import get_normalized_env
 
 
@@ -28,6 +23,9 @@ def train_agent(
 
             action = agent.choose_action(state)
             next_state, reward, end, _ = env.step(action.numpy())
+
+            if step >= 499:
+                end = True
 
             if is_render:
                 env.render()
@@ -58,36 +56,29 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 3 and len(sys.argv) != 4:
         print("Please provide agent name and file id")
         exit(1)
     agent_name = sys.argv[1]
-    task = "Pendulum-v0"
+    task = "Ant-v2"
     file_id = sys.argv[2]
+    debug_file = None
+    if len(sys.argv) == 4:
+        debug_file = agent_name + '_' + task + '_' + str(file_id) + '_debug' + '.csv'
     print(agent_name, file_id)
+    file_name = agent_name + '_' + task + '_' + str(file_id) + '.csv'
     environment = get_normalized_env(task)
     state_dim = environment.observation_space.shape[0]
     action_dim = environment.action_space.shape[0]
     if agent_name == 'sac':
-        agent_instance = SAC(state_dim, action_dim)
-    elif agent_name == 'dpn':
-        agent_instance = DPN(state_dim, action_dim)
-    elif agent_name == 'per':
-        agent_instance = PER(state_dim, action_dim)
-    elif agent_name == 'trls':
-        agent_instance = TRLS(state_dim, action_dim)
+        agent_instance = SAC(state_dim, action_dim, debug_file=debug_file)
     elif agent_name == 'trps':
         agent_instance = TRPS(state_dim, action_dim)
-    elif agent_name == 'trlso':
-        agent_instance = TRLSO(state_dim, action_dim)
-    elif agent_name == 'trpso':
-        agent_instance = TRPSO(state_dim, action_dim)
     else:
         agent_instance = None
     if agent_instance is None:
         print("Unsupported agent name")
         exit(2)
-    file_name = agent_name + '_' + task + '_' + str(file_id) + '.csv'
 
     with open(file_name, "a") as file:
         file.write("{},Round {}\n".format("Episode", str(file_id)))
