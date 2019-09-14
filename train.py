@@ -73,7 +73,7 @@ if __name__ == "__main__":
     if agent_name == 'sac':
         agent_instance = SAC(state_dim, action_dim, debug_file=debug_file)
     elif agent_name == 'trps':
-        agent_instance = TRPS(state_dim, action_dim)
+        agent_instance = TRPS(state_dim, action_dim, debug_file=debug_file)
     else:
         agent_instance = None
     if agent_instance is None:

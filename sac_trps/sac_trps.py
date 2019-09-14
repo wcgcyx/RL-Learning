@@ -25,7 +25,8 @@ class Agent:
             log_std_min=-20,
             log_std_max=2,
             memory_size=1000000,
-            batch_size=128):
+            batch_size=128,
+            debug_file=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.tr = tr
@@ -37,6 +38,11 @@ class Agent:
 
         self.memory = ReplayBuffer(memory_size)
         self.batch_size = batch_size
+        if debug_file is None:
+            self.debug_file = None
+        else:
+            self.debug_file = open(debug_file, "a")
+            self.debug_file.write("KL,improvement\n")
 
     def choose_action(self, state):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
@@ -83,6 +89,9 @@ class Agent:
         old_log_prob = Normal(mean, std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
         old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
+        if self.debug_file is not None:
+            old_reward = self.get_reward(state)
+
         params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
         search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
 
@@ -115,8 +124,27 @@ class Agent:
                 search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
             search_size /= 2
 
+        if self.debug_file is not None:
+            KL = self.get_KL(torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()),
+                             old_log_prob, state, old_action_raw, old_action)
+            new_reward = self.get_reward(state)
+            self.debug_file.write("{},{}\n".format(abs(KL), new_reward - old_reward))
+
         # Updating Target-V Network
         self.critic.update_target_v()
+
+    def get_reward(self, state):
+        same_z = Normal(0, 1).sample()
+        mean, log_std = self.actor.policy_net.forward(state)
+        std = log_std.exp()
+        action_raw = mean + std * same_z
+        action = torch.tanh(action_raw)
+        log_prob = Normal(mean, std).log_prob(action_raw) - torch.log(1 - action.pow(2) + 1e-6)
+        log_prob = log_prob.sum(-1, keepdim=True)
+        predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, action)
+        predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
+        loss = (self.alpha * log_prob - predicted_new_q_value).mean().abs()
+        return loss.item()
 
     def get_KL(self, params, old_log_prob, state, old_action_raw, old_action):
         torch.nn.utils.vector_to_parameters(params, self.actor.evaluate_net.parameters())
