@@ -18,7 +18,7 @@ class Agent:
             state_dim,
             action_dim,
             lr=3e-4,
-            tr=0.01,
+            tr=0.1,
             discount=0.99,
             tau=1e-2,
             alpha=0.2,
@@ -95,23 +95,12 @@ class Agent:
         params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
         search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
 
-        max_size = torch.FloatTensor([1]).to(device)
-        min_size = torch.FloatTensor([1e-4]).to(device)
+        unit_size = torch.FloatTensor([1e-4]).to(device)
+        max_iteration = 5
 
-        # Search for the start search size
-        search_size = torch.FloatTensor([1e-4]).to(device)
-        while search_size <= max_size:
-            test_params = params - search_direction * search_size
-            KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
-            if abs(KL) > self.tr:
-                search_size /= 2
-                break
-            search_size *= 2
-
-        # Now we have the start search size
-
-        while search_size >= min_size:
-            test_params = params - search_direction * search_size
+        # Now we have the iterations
+        for i in range(max_iteration):
+            test_params = params - search_direction * unit_size
             KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
             if abs(KL) <= self.tr:
                 params = test_params
@@ -122,7 +111,8 @@ class Agent:
                 predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
                 policy_loss = (self.alpha * log_prob - predicted_new_q_value).mean()
                 search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
-            search_size /= 2
+            else:
+                break
 
         if self.debug_file is not None:
             KL = self.get_KL(torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()),
