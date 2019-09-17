@@ -95,7 +95,7 @@ class Agent:
                 old_reward = self.get_reward(state)
 
             mean = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()).detach()
-            std = torch.FloatTensor([1e-5])
+            std = torch.FloatTensor([1e-5]).to(device)
             iterations = 10
             N = 100
             Ne = 10
@@ -128,7 +128,7 @@ class Agent:
         self.critic.update_target_v()
 
     def get_value(self, state, x, old_log_prob, old_action_raw, old_action):
-        result = torch.FloatTensor()
+        result = torch.FloatTensor().to(device)
         for param in x:
             param = param.flatten()
             if self.get_KL(param, old_log_prob, state, old_action_raw, old_action) > self.tr:
