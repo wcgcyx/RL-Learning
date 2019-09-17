@@ -32,6 +32,8 @@ class Agent:
         self.tr = tr
         self.discount = discount
         self.alpha = alpha
+        self.count = 0
+        self.advantage = 0
 
         self.actor = Actor(state_dim, action_dim, lr, log_std_min, log_std_max)
         self.critic = Critic(state_dim, action_dim, lr, tau)
@@ -78,7 +80,6 @@ class Agent:
         self.critic.learn_v(v_loss)
 
         # Training Policy Network
-        policy_loss = (self.alpha * log_prob - predicted_new_q_value).mean()
 
         normal = Normal(0, 1)
         z = normal.sample().to(device)
@@ -89,49 +90,67 @@ class Agent:
         old_log_prob = Normal(mean, std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
         old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
-        if self.debug_file is not None:
-            old_reward = self.get_reward(state)
+        if self.count % 10 == 0:
+            if self.debug_file is not None:
+                old_reward = self.get_reward(state)
 
-        params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
-        search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
+            mean = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()).detach()
+            std = torch.FloatTensor([1e-5])
+            iterations = 10
+            N = 100
+            Ne = 10
+            t = 0
+            trained = 0
+            while t < iterations and std.max() > 1e-6:
+                X = Normal(mean, std).sample((N, 1))
+                S, valid = self.get_value(state, X, old_log_prob, old_action_raw, old_action)
+                if not valid:
+                    std /= 2
+                else:
+                    trained += 1
+                    _, indices = torch.topk(S, k=Ne, dim=0)
+                    indices = indices.flatten()
+                    XNe = torch.index_select(X, dim=0, index=indices)
+                    mean = XNe.mean(dim=0).squeeze(dim=0)
+                    std = XNe.var(dim=0).sqrt().squeeze(dim=0)
+                t += 1
+            torch.nn.utils.vector_to_parameters(mean, self.actor.policy_net.parameters())
 
-        max_size = torch.FloatTensor([1]).to(device)
-        min_size = torch.FloatTensor([1e-4]).to(device)
-
-        # Search for the start search size
-        search_size = torch.FloatTensor([1e-4]).to(device)
-        while search_size <= max_size:
-            test_params = params - search_direction * search_size
-            KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
-            if abs(KL) > self.tr:
-                search_size /= 2
-                break
-            search_size *= 2
-
-        # Now we have the start search size
-
-        while search_size >= min_size:
-            test_params = params - search_direction * search_size
-            KL = self.get_KL(test_params, old_log_prob, state, old_action_raw, old_action)
-            if abs(KL) <= self.tr:
-                params = test_params
-                torch.nn.utils.vector_to_parameters(params, self.actor.policy_net.parameters())
-                # Compute new direction
-                new_action, log_prob = self.actor.predict(state)
-                predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, new_action)
-                predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
-                policy_loss = (self.alpha * log_prob - predicted_new_q_value).mean()
-                search_direction = torch.nn.utils.parameters_to_vector(torch.autograd.grad(policy_loss, self.actor.policy_net.parameters(), retain_graph=True))
-            search_size /= 2
-
-        if self.debug_file is not None:
-            KL = self.get_KL(torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()),
-                             old_log_prob, state, old_action_raw, old_action)
-            new_reward = self.get_reward(state)
-            self.debug_file.write("{},{}\n".format(abs(KL), new_reward - old_reward))
-
+            if self.debug_file is not None:
+                KL = self.get_KL(torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()),
+                                 old_log_prob, state, old_action_raw, old_action)
+                new_reward = self.get_reward(state)
+                self.debug_file.write("{},{}\n".format(abs(KL), new_reward - old_reward))
+            self.advantage += new_reward - old_reward
+            print(self.advantage, t, trained)
+        self.count += 1
         # Updating Target-V Network
         self.critic.update_target_v()
+
+    def get_value(self, state, x, old_log_prob, old_action_raw, old_action):
+        result = torch.FloatTensor()
+        for param in x:
+            param = param.flatten()
+            if self.get_KL(param, old_log_prob, state, old_action_raw, old_action) > self.tr:
+                return None, False
+            temp = self.get_single_value(state, param).reshape(1)
+            result = torch.cat((result, temp), dim=0)
+        result = result.unsqueeze(1)
+        return result, True
+
+    def get_single_value(self, state, params):
+        same_z = Normal(0, 1).sample()
+        torch.nn.utils.vector_to_parameters(params, self.actor.evaluate_net.parameters())
+        mean, log_std = self.actor.evaluate_net.forward(state)
+        std = log_std.exp()
+        action_raw = mean + std * same_z
+        action = torch.tanh(action_raw)
+        log_prob = Normal(mean, std).log_prob(action_raw) - torch.log(1 - action.pow(2) + 1e-6)
+        log_prob = log_prob.sum(-1, keepdim=True)
+        predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, action)
+        predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
+        loss = (predicted_new_q_value - self.alpha * log_prob).mean()
+        return loss.detach()
 
     def get_reward(self, state):
         same_z = Normal(0, 1).sample()

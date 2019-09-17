@@ -83,5 +83,5 @@ if __name__ == "__main__":
     with open(file_name, "a") as file:
         file.write("{},Round {}\n".format("Episode", str(file_id)))
 
-    train_agent(agent_instance, environment, 250, False, file_name)
+    train_agent(agent_instance, environment, 10, False, file_name)
     exit(0)
