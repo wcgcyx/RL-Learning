@@ -108,7 +108,7 @@ class Agent:
         log_prob = log_prob.sum(-1, keepdim=True)
         predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, action)
         predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
-        loss = (self.alpha * log_prob - predicted_new_q_value).mean().abs()
+        loss = (predicted_new_q_value - self.alpha * log_prob).mean()
         return loss.item()
 
     def get_KL(self, params, old_log_prob, state, old_action_raw, old_action):
