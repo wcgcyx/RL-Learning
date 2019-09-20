@@ -18,7 +18,7 @@ class Agent:
             state_dim,
             action_dim,
             lr=3e-4,
-            tr=0.05,
+            tr=0.01,
             discount=0.99,
             tau=1e-2,
             alpha=0.2,
@@ -100,33 +100,34 @@ class Agent:
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
         while t < iterations or scale.max() > 0.01:
             X = self.sample(location, scale, N)
-            S, valid = self.get_value(X, states, old_mean, old_std, original_shape, compress_shape)
-            if not valid:
-                scale /= 2
-            else:
-                _, indices = torch.topk(S, k=Ne, dim=0)
-                indices = indices.flatten()
-                XNe = torch.index_select(X, dim=0, index=indices)
-                location = XNe.mean(dim=0)
-                scale = XNe.std(dim=0)
+            S = self.get_value(X, states, original_shape, compress_shape)
+            _, indices = torch.topk(S, k=Ne, dim=0)
+            indices = indices.flatten()
+            XNe = torch.index_select(X, dim=0, index=indices)
+            location = XNe.mean(dim=0)
+            scale = XNe.std(dim=0)
             t += 1
         # Now we can train the neural network
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)
-        self.actor.learn(state, target_mean, target_log_std)
 
+        for i in range(10):
+            self.actor.learn(state, target_mean, target_log_std)
+        # mean, log_std = self.actor.policy_net.forward(state)
+        # mean = mean.detach()
+        # log_std = log_std.detach()
+        # std = log_std.exp()
+        # KL = (std / old_std).log() + (old_std.pow(2) + (old_mean - mean).pow(2)) / (2 * std.pow(2)) - 0.5
+        # KL = KL.mean()
+        # if KL > self.tr:
+        #     break
         # Updating Target-V Network
         self.critic.update_target_v()
 
-    def get_value(self, X, states, old_mean, old_std, original_shape, compress_shape):
+    def get_value(self, X, states, original_shape, compress_shape):
         len = X.shape[2] // 2
         mean, log_std = torch.split(X, len, dim=2)
         std = log_std.exp()
-
-        KL = (std / old_std).log() + (old_std.pow(2) + (old_mean - mean).pow(2)) / (2 * std.pow(2)) - 0.5
-        KL = KL.mean(dim=1)
-        if KL.max() > self.tr:
-            return None, False
         noise = Normal(0, 1).sample()
         action_raw = mean + std * noise
         action = torch.tanh(action_raw)
@@ -135,7 +136,7 @@ class Agent:
         predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(states, action.reshape(compress_shape, self.action_dim))
         predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2).reshape(original_shape[0], original_shape[1], 1)
         loss = (predicted_new_q_value - self.alpha * log_prob).mean(dim=1)
-        return loss.detach(), True
+        return loss.detach()
 
     def sample(self, location, scale, N):
         original_sample = Normal(location, scale).sample((N,))
