@@ -33,7 +33,8 @@ class Agent:
         self.discount = discount
         self.alpha = alpha
         self.count = 0
-        self.advantage = 0
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
 
         self.actor = Actor(state_dim, action_dim, lr, log_std_min, log_std_max)
         self.critic = Critic(state_dim, action_dim, lr, tau)
@@ -80,70 +81,64 @@ class Agent:
         self.critic.learn_v(v_loss)
 
         # Training Policy Network
+        old_mean, old_log_std = self.actor.policy_net.forward(state)
+        old_mean = old_mean.detach()
+        old_log_std = old_log_std.detach()
+        old_std = old_log_std.exp()
 
-        normal = Normal(0, 1)
-        z = normal.sample().to(device)
-        mean, log_std = self.actor.policy_net.forward(state)
-        std = log_std.exp()
-        old_action_raw = mean + std * z
-        old_action = torch.tanh(old_action_raw)
-        old_log_prob = Normal(mean, std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
-        old_log_prob = old_log_prob.sum(-1, keepdim=True)
+        # Init parameters for cross entropy method
+        location = torch.cat((old_mean, old_log_std), dim=1)
+        scale = torch.FloatTensor([1]).to(device)
+        # Max iterations
+        iterations = 100
+        # Init N and Ne
+        N = 100
+        Ne = 10
+        # Start searching
+        t = 0
+        while t < iterations and scale.max() > 1e-6:
+            X = self.sample(location, scale, N)
+            S, valid = self.get_value(X, state, old_mean, old_std)
+            if not valid:
+                scale /= 2
+            else:
+                _, indices = torch.topk(S, k=Ne, dim=0)
+                indices = indices.flatten()
+                XNe = torch.index_select(X, dim=0, index=indices)
+                location = XNe.mean(dim=0)
+                scale = XNe.std(dim=0)
+            t += 1
+        # Now we can train the neural network
+        # TBD
+        len = location.shape[1] // 2
+        predicted_mean, predicted_log_std = self.actor.policy_net.forward(state)
+        target_mean, target_log_std = torch.split(location, len, dim=1)
+        mean_loss = nn.MSELoss()(predicted_mean, target_mean)
+        log_std_loss = nn.MSELoss()(predicted_log_std, target_log_std)
+        policy_loss = mean_loss + log_std_loss
+        self.actor.learn(policy_loss)
 
-        if self.count % 10 == 0:
-            if self.debug_file is not None:
-                old_reward = self.get_reward(state)
-
-            mean = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()).detach()
-            std = torch.FloatTensor([1e-5]).to(device)
-            iterations = 10
-            N = 100
-            Ne = 10
-            t = 0
-            trained = 0
-            while t < iterations and std.max() > 1e-6:
-                X = Normal(mean, std).sample((N, 1))
-                S, valid = self.get_value(state, X, old_log_prob, old_action_raw, old_action)
-                if not valid:
-                    std /= 2
-                else:
-                    trained += 1
-                    _, indices = torch.topk(S, k=Ne, dim=0)
-                    indices = indices.flatten()
-                    XNe = torch.index_select(X, dim=0, index=indices)
-                    mean = XNe.mean(dim=0).squeeze(dim=0)
-                    std = XNe.var(dim=0).sqrt().squeeze(dim=0)
-                t += 1
-            torch.nn.utils.vector_to_parameters(mean, self.actor.policy_net.parameters())
-
-            if self.debug_file is not None:
-                KL = self.get_KL(torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters()),
-                                 old_log_prob, state, old_action_raw, old_action)
-                new_reward = self.get_reward(state)
-                self.debug_file.write("{},{}\n".format(abs(KL), new_reward - old_reward))
-            self.advantage += new_reward - old_reward
-            print(self.advantage, t, trained)
-        self.count += 1
         # Updating Target-V Network
         self.critic.update_target_v()
 
-    def get_value(self, state, x, old_log_prob, old_action_raw, old_action):
+    def get_value(self, X, state, old_mean, old_std):
+        len = X.shape[2] // 2
+        mean, log_std = torch.split(X, len, dim=2)
+        std = log_std.exp()
         result = torch.FloatTensor().to(device)
-        for param in x:
-            param = param.flatten()
-            if self.get_KL(param, old_log_prob, state, old_action_raw, old_action) > self.tr:
+        for new_mean, new_std in zip(mean, std):
+            KL = (new_std / old_std).log() + (old_std.pow(2) + (old_mean - new_mean).pow(2)) / (2 * new_std.pow(2)) - 0.5
+            KL = KL.mean()
+            if KL > self.tr:
                 return None, False
-            temp = self.get_single_value(state, param).reshape(1)
+            temp = self.get_single_value(state, new_mean, new_std).reshape(1)
             result = torch.cat((result, temp), dim=0)
         result = result.unsqueeze(1)
         return result, True
 
-    def get_single_value(self, state, params):
-        same_z = Normal(0, 1).sample()
-        torch.nn.utils.vector_to_parameters(params, self.actor.evaluate_net.parameters())
-        mean, log_std = self.actor.evaluate_net.forward(state)
-        std = log_std.exp()
-        action_raw = mean + std * same_z
+    def get_single_value(self, state, mean, std):
+        noise = Normal(0, 1).sample()
+        action_raw = mean + std * noise
         action = torch.tanh(action_raw)
         log_prob = Normal(mean, std).log_prob(action_raw) - torch.log(1 - action.pow(2) + 1e-6)
         log_prob = log_prob.sum(-1, keepdim=True)
@@ -152,18 +147,11 @@ class Agent:
         loss = (predicted_new_q_value - self.alpha * log_prob).mean()
         return loss.detach()
 
-    def get_reward(self, state):
-        same_z = Normal(0, 1).sample()
-        mean, log_std = self.actor.policy_net.forward(state)
-        std = log_std.exp()
-        action_raw = mean + std * same_z
-        action = torch.tanh(action_raw)
-        log_prob = Normal(mean, std).log_prob(action_raw) - torch.log(1 - action.pow(2) + 1e-6)
-        log_prob = log_prob.sum(-1, keepdim=True)
-        predicted_new_q_value_1, predicted_new_q_value_2 = self.critic.predict_q(state, action)
-        predicted_new_q_value = torch.min(predicted_new_q_value_1, predicted_new_q_value_2)
-        loss = (predicted_new_q_value - self.alpha * log_prob).mean()
-        return loss.item()
+    def sample(self, location, scale, N):
+        original_sample = Normal(location, scale).sample((N,))
+        len = original_sample.shape[2] // 2
+        original_sample = torch.split(original_sample, len, dim=2)
+        return torch.cat((original_sample[0], original_sample[1].clamp(self.log_std_min, self.log_std_max)), dim=2)
 
     def get_KL(self, params, old_log_prob, state, old_action_raw, old_action):
         torch.nn.utils.vector_to_parameters(params, self.actor.evaluate_net.parameters())
@@ -172,7 +160,7 @@ class Agent:
         new_log_prob = Normal(mean, std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
         new_log_prob = new_log_prob.sum(-1, keepdim=True)
         KL = old_log_prob - new_log_prob
-        KL = KL.mean()
+        KL = KL.abs().mean()
         return KL.item()
 
     def save_weighs(self, task, identifier):
