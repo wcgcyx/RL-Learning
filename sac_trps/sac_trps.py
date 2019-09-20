@@ -98,7 +98,7 @@ class Agent:
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
-        while t < iterations:
+        while t < iterations or scale.max() > 0.01:
             X = self.sample(location, scale, N)
             S, valid = self.get_value(X, states, old_mean, old_std, original_shape, compress_shape)
             if not valid:
