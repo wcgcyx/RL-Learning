@@ -85,13 +85,17 @@ class Agent:
         old_mean = old_mean.detach()
         old_log_std = old_log_std.detach()
         old_std = old_log_std.exp()
+        old_action_raw = old_mean + old_std * Normal(0, 1).sample().to(device)
+        old_action = torch.tanh(old_action_raw)
+        old_log_prob = Normal(old_mean, old_std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
+        old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
         # Start cross-entropy search
         location = torch.cat((old_mean, old_log_std), dim=1)
         scale = torch.FloatTensor([1]).to(device)
 
         iterations = 20
-        N = 100
+        N = 250
         Ne = 10
         # Start searching
         t = 0
@@ -111,18 +115,27 @@ class Agent:
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)
 
+        # Maximum take 10 steps
         for i in range(10):
+            old_params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
             self.actor.learn(state, target_mean, target_log_std)
-        # mean, log_std = self.actor.policy_net.forward(state)
-        # mean = mean.detach()
-        # log_std = log_std.detach()
-        # std = log_std.exp()
-        # KL = (std / old_std).log() + (old_std.pow(2) + (old_mean - mean).pow(2)) / (2 * std.pow(2)) - 0.5
-        # KL = KL.mean()
-        # if KL > self.tr:
-        #     break
+            new_mean, new_log_std = self.actor.policy_net.forward(state)
+            new_mean = new_mean.detach()
+            new_log_std = new_log_std.detach()
+            new_std = new_log_std.exp()
+            KL = self.get_KL(old_log_prob, old_action_raw, old_action, new_mean, new_std)
+            if KL > self.tr:
+                torch.nn.utils.vector_to_parameters(old_params, self.actor.policy_net.parameters())
+                print(i)
+                break
+
         # Updating Target-V Network
         self.critic.update_target_v()
+
+    def get_KL(self, old_log_prob, old_action_raw, old_action, new_mean, new_std):
+        new_log_prob = Normal(new_mean, new_std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
+        new_log_prob = new_log_prob.sum(-1, keepdim=True)
+        return (old_log_prob - new_log_prob).abs().mean()
 
     def get_value(self, X, states, original_shape, compress_shape):
         len = X.shape[2] // 2
