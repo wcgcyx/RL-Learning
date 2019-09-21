@@ -95,18 +95,16 @@ class Agent:
         scale = torch.FloatTensor([1]).to(device)
 
         N = 100
-        Ne = 5
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
         for i in range(10):
             X = self.sample(location, scale, N)
             S = self.get_value(X, states, original_shape, compress_shape)
-            _, indices = torch.topk(S, k=Ne, dim=0)
-            indices = indices.flatten()
-            XNe = torch.index_select(X, dim=0, index=indices)
-            location = XNe.mean(dim=0)
-            scale = XNe.std(dim=0)
+            _, index = torch.max(S, dim=0)
+            location = X[index].squeeze(0)
+
+        # print(new_value.item(), old_value.item(), (new_value > old_value).item())
 
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)
