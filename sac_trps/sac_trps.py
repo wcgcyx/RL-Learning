@@ -95,39 +95,19 @@ class Agent:
         scale = torch.FloatTensor([1]).to(device)
 
         N = 100
-        Ne = 1
+        Ne = 5
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
-        for i in range(5):
+        for i in range(10):
             X = self.sample(location, scale, N)
             S = self.get_value(X, states, original_shape, compress_shape)
             _, indices = torch.topk(S, k=Ne, dim=0)
             indices = indices.flatten()
             XNe = torch.index_select(X, dim=0, index=indices)
             location = XNe.mean(dim=0)
+            scale = XNe.std(dim=0)
 
-
-        # N = 500
-        # Ne = 5
-        # # Start searching
-        # t = 0
-        # iterations = 25
-        # original_shape = N, self.batch_size
-        # compress_shape = N * self.batch_size
-        # states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
-        # while t < iterations and scale.max() > 0.1:
-        #     print(t, scale.max().item(), scale.mean().item())
-        #     X = self.sample(location, scale, N)
-        #     S = self.get_value(X, states, original_shape, compress_shape)
-        #     _, indices = torch.topk(S, k=Ne, dim=0)
-        #     indices = indices.flatten()
-        #     XNe = torch.index_select(X, dim=0, index=indices)
-        #     location = XNe.mean(dim=0)
-        #     scale = XNe.std(dim=0)
-        #     t += 1
-        # print(t, scale.max().item(), scale.mean().item())
-        # # Now we can train the neural network
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)
 
