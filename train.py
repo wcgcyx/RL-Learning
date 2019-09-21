@@ -3,7 +3,6 @@ from sac import Agent as SAC
 from sac_trps import Agent as TRPS
 from utils import get_normalized_env
 
-
 def train_agent(
         agent,
         env,
@@ -18,9 +17,10 @@ def train_agent(
 
         state = env.reset()
         total_reward = 0
+        step_taken = 0
 
         for step in range(500):
-
+            step_taken += 1
             action = agent.choose_action(state)
             next_state, reward, end, _ = env.step(action.numpy())
 
@@ -42,7 +42,7 @@ def train_agent(
             if end:
                 break
 
-        print(episode, frame, total_reward)
+        print(episode, frame, total_reward / step_taken, total_reward)
 
         if output_file is not None:
             with open(output_file, "a") as file:
@@ -83,5 +83,5 @@ if __name__ == "__main__":
     with open(file_name, "a") as file:
         file.write("{},Round {}\n".format("Episode", str(file_id)))
 
-    train_agent(agent_instance, environment, 10, False, file_name)
+    train_agent(agent_instance, environment, 250, False, file_name)
     exit(0)

@@ -85,49 +85,53 @@ class Agent:
         old_mean = old_mean.detach()
         old_log_std = old_log_std.detach()
         old_std = old_log_std.exp()
-        old_action_raw = old_mean + old_std * Normal(0, 1).sample().to(device)
-        old_action = torch.tanh(old_action_raw)
-        old_log_prob = Normal(old_mean, old_std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
-        old_log_prob = old_log_prob.sum(-1, keepdim=True)
+        # old_action_raw = old_mean + old_std * Normal(0, 1).sample().to(device)
+        # old_action = torch.tanh(old_action_raw)
+        # old_log_prob = Normal(old_mean, old_std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
+        # old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
         # Start cross-entropy search
         location = torch.cat((old_mean, old_log_std), dim=1)
         scale = torch.FloatTensor([1]).to(device)
 
-        iterations = 20
-        N = 250
-        Ne = 10
-        # Start searching
-        t = 0
+        N = 100
+        Ne = 1
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
-        while t < iterations or scale.max() > 0.01:
+        for i in range(5):
             X = self.sample(location, scale, N)
             S = self.get_value(X, states, original_shape, compress_shape)
             _, indices = torch.topk(S, k=Ne, dim=0)
             indices = indices.flatten()
             XNe = torch.index_select(X, dim=0, index=indices)
             location = XNe.mean(dim=0)
-            scale = XNe.std(dim=0)
-            t += 1
-        # Now we can train the neural network
+
+
+        # N = 500
+        # Ne = 5
+        # # Start searching
+        # t = 0
+        # iterations = 25
+        # original_shape = N, self.batch_size
+        # compress_shape = N * self.batch_size
+        # states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
+        # while t < iterations and scale.max() > 0.1:
+        #     print(t, scale.max().item(), scale.mean().item())
+        #     X = self.sample(location, scale, N)
+        #     S = self.get_value(X, states, original_shape, compress_shape)
+        #     _, indices = torch.topk(S, k=Ne, dim=0)
+        #     indices = indices.flatten()
+        #     XNe = torch.index_select(X, dim=0, index=indices)
+        #     location = XNe.mean(dim=0)
+        #     scale = XNe.std(dim=0)
+        #     t += 1
+        # print(t, scale.max().item(), scale.mean().item())
+        # # Now we can train the neural network
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)
 
-        # Maximum take 10 steps
-        for i in range(10):
-            old_params = torch.nn.utils.parameters_to_vector(self.actor.policy_net.parameters())
-            self.actor.learn(state, target_mean, target_log_std)
-            new_mean, new_log_std = self.actor.policy_net.forward(state)
-            new_mean = new_mean.detach()
-            new_log_std = new_log_std.detach()
-            new_std = new_log_std.exp()
-            KL = self.get_KL(old_log_prob, old_action_raw, old_action, new_mean, new_std)
-            if KL > self.tr:
-                torch.nn.utils.vector_to_parameters(old_params, self.actor.policy_net.parameters())
-                print(i)
-                break
+        self.actor.learn(state, target_mean, target_log_std)
 
         # Updating Target-V Network
         self.critic.update_target_v()
