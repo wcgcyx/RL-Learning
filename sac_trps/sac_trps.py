@@ -92,10 +92,10 @@ class Agent:
 
         # Start cross-entropy search
         location = torch.cat((old_mean, old_log_std), dim=1)
-        scale = torch.FloatTensor([1]).to(device)
+        scale = torch.FloatTensor([2]).to(device)
 
-        N = 100
-        Ne = 5
+        N = 500
+        Ne = 20
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
