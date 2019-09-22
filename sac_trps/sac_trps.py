@@ -94,8 +94,8 @@ class Agent:
         location = torch.cat((old_mean, old_log_std), dim=1)
         scale = torch.FloatTensor([3]).to(device)
 
-        N = 100
-        Ne = 10
+        N = 250
+        Ne = 5
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
