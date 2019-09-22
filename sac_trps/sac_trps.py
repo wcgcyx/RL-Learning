@@ -92,14 +92,17 @@ class Agent:
 
         # Start cross-entropy search
         location = torch.cat((old_mean, old_log_std), dim=1)
-        scale = torch.FloatTensor([2]).to(device)
+        scale = torch.FloatTensor([3]).to(device)
 
-        N = 500
-        Ne = 20
+        N = 100
+        Ne = 10
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
-        for i in range(10):
+
+        t = 0
+        while scale.mean() >= 0.33:
+            t += 1
             X = self.sample(location, scale, N)
             S = self.get_value(X, states, original_shape, compress_shape)
             _, indices = torch.topk(S, k=Ne, dim=0)
@@ -107,6 +110,7 @@ class Agent:
             XNe = torch.index_select(X, dim=0, index=indices)
             location = XNe.mean(dim=0)
             scale = XNe.std(dim=0)
+        # print(t, scale.mean())
 
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)

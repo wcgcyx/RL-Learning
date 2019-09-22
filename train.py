@@ -42,7 +42,7 @@ def train_agent(
             if end:
                 break
 
-        print(episode, frame, total_reward / step_taken, total_reward)
+        print(episode, frame, total_reward)
 
         if output_file is not None:
             with open(output_file, "a") as file:
