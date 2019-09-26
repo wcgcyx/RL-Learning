@@ -84,24 +84,19 @@ class Agent:
         old_mean, old_log_std = self.actor.policy_net.forward(state)
         old_mean = old_mean.detach()
         old_log_std = old_log_std.detach()
-        old_std = old_log_std.exp()
-        # old_action_raw = old_mean + old_std * Normal(0, 1).sample().to(device)
-        # old_action = torch.tanh(old_action_raw)
-        # old_log_prob = Normal(old_mean, old_std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
-        # old_log_prob = old_log_prob.sum(-1, keepdim=True)
 
         # Start cross-entropy search
         location = torch.cat((old_mean, old_log_std), dim=1)
-        scale = torch.FloatTensor([3]).to(device)
+        scale = torch.FloatTensor([0.33]).to(device)
 
-        N = 250
-        Ne = 5
+        N = 100
+        Ne = 10
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
 
         t = 0
-        while scale.mean() >= 0.33:
+        while t <= 10:
             t += 1
             X = self.sample(location, scale, N)
             S = self.get_value(X, states, original_shape, compress_shape)
@@ -110,7 +105,6 @@ class Agent:
             XNe = torch.index_select(X, dim=0, index=indices)
             location = XNe.mean(dim=0)
             scale = XNe.std(dim=0)
-        # print(t, scale.mean())
 
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.distributions import Normal
+from torch.distributions import Normal, kl_divergence
 
 # Get device
 use_cuda = torch.cuda.is_available()
@@ -33,11 +33,11 @@ class Actor:
         return self.policy_net.predict(state)
 
     def learn(self, state, target_mean, target_log_std):
-        self.policy_optimizer.zero_grad()
         predicted_mean, predicted_log_std = self.policy_net.forward(state)
-        mean_loss = nn.MSELoss()(predicted_mean, target_mean)
-        log_std_loss = nn.MSELoss()(predicted_log_std, target_log_std)
-        policy_loss = mean_loss + log_std_loss
+        predicted_dist = Normal(predicted_mean, predicted_log_std.exp())
+        target_dist = Normal(target_mean, target_log_std.exp())
+        policy_loss = kl_divergence(predicted_dist, target_dist).mean()
+        self.policy_optimizer.zero_grad()
         policy_loss.backward()
         self.policy_optimizer.step()
 
