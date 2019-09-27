@@ -22,7 +22,7 @@ class Actor:
         # SAC has one network in critic
         # One Policy-Network
         self.policy_net = PolicyNetwork(state_dim, action_dim, log_std_min, log_std_max).to(device)
-        self.policy_optimizer = optim.SGD(self.policy_net.parameters(), lr=lr)
+        self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
         self.evaluate_net = PolicyNetwork(state_dim, action_dim, log_std_min, log_std_max).to(device)
 
     def get_action(self, state):
@@ -37,6 +37,7 @@ class Actor:
         predicted_dist = Normal(predicted_mean, predicted_log_std.exp())
         target_dist = Normal(target_mean, target_log_std.exp())
         policy_loss = kl_divergence(predicted_dist, target_dist).mean()
+        # print(policy_loss)
         self.policy_optimizer.zero_grad()
         policy_loss.backward()
         self.policy_optimizer.step()
