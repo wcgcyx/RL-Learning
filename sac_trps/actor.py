@@ -37,7 +37,7 @@ class Actor:
         predicted_dist = Normal(predicted_mean, predicted_log_std.exp())
         target_dist = Normal(target_mean, target_log_std.exp())
         policy_loss = kl_divergence(predicted_dist, target_dist).mean()
-        # print(policy_loss)
+        # print("Policy loss: {}".format(policy_loss.item()))
         self.policy_optimizer.zero_grad()
         policy_loss.backward()
         self.policy_optimizer.step()

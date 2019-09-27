@@ -105,6 +105,8 @@ class Agent:
             XNe = torch.index_select(X, dim=0, index=indices)
             location = XNe.mean(dim=0)
             scale = XNe.std(dim=0)
+            # print("STD: {}:{}".format(t, scale.mean().item()))
+        # print("Finish with STD: {}:{}".format(t, scale.mean().item()))
 
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)
@@ -134,7 +136,10 @@ class Agent:
         return loss.detach()
 
     def sample(self, location, scale, N):
-        original_sample = Normal(location, scale).sample((N,))
+        # Bound normal distribution by 3 std
+        min = -scale * 3
+        max = scale * 3
+        original_sample = torch.max(torch.min(Normal(location, scale).sample((N,)), max), min)
         len = original_sample.shape[2] // 2
         original_sample = torch.split(original_sample, len, dim=2)
         return torch.cat((original_sample[0], original_sample[1].clamp(self.log_std_min, self.log_std_max)), dim=2)
