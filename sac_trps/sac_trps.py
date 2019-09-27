@@ -87,7 +87,7 @@ class Agent:
 
         # Start cross-entropy search
         location = torch.cat((old_mean, old_log_std), dim=1)
-        scale = torch.FloatTensor([0.33]).to(device)
+        scale = torch.FloatTensor([1]).to(device)
 
         N = 100
         Ne = 10
@@ -137,8 +137,8 @@ class Agent:
 
     def sample(self, location, scale, N):
         # Bound normal distribution by 3 std
-        min = -scale * 3
-        max = scale * 3
+        min = location - scale * 3
+        max = location + scale * 3
         original_sample = torch.max(torch.min(Normal(location, scale).sample((N,)), max), min)
         len = original_sample.shape[2] // 2
         original_sample = torch.split(original_sample, len, dim=2)

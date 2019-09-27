@@ -60,7 +60,7 @@ if __name__ == "__main__":
         print("Please provide agent name and file id")
         exit(1)
     agent_name = sys.argv[1]
-    task = "Hopper-v2"
+    task = "InvertedPendulum-v2"
     file_id = sys.argv[2]
     debug_file = None
     if len(sys.argv) == 4:
