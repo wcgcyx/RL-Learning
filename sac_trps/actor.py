@@ -34,10 +34,7 @@ class Actor:
 
     def learn(self, state, target_mean, target_log_std):
         predicted_mean, predicted_log_std = self.policy_net.forward(state)
-        predicted_dist = Normal(predicted_mean, predicted_log_std.exp())
-        target_dist = Normal(target_mean, target_log_std.exp())
-        policy_loss = kl_divergence(predicted_dist, target_dist).mean()
-        # print("Policy loss: {}".format(policy_loss.item()))
+        policy_loss = nn.MSELoss()(predicted_mean, target_mean) + nn.MSELoss()(predicted_log_std, target_log_std)
         self.policy_optimizer.zero_grad()
         policy_loss.backward()
         self.policy_optimizer.step()

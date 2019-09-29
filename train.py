@@ -22,6 +22,7 @@ def train_agent(
         for step in range(500):
             step_taken += 1
             action = agent.choose_action(state)
+            # print("State: {}, Action: {}".format(state, action))
             next_state, reward, end, _ = env.step(action.numpy())
 
             if step >= 499:
@@ -60,7 +61,7 @@ if __name__ == "__main__":
         print("Please provide agent name and file id")
         exit(1)
     agent_name = sys.argv[1]
-    task = "InvertedPendulum-v2"
+    task = "Ant-v2"
     file_id = sys.argv[2]
     debug_file = None
     if len(sys.argv) == 4:
