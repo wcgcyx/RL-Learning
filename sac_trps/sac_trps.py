@@ -26,7 +26,9 @@ class Agent:
             log_std_max=2,
             memory_size=1000000,
             batch_size=128,
-            debug_file=None):
+            N=100,
+            Ne=10,
+            t=10):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.tr = tr
@@ -41,11 +43,9 @@ class Agent:
 
         self.memory = ReplayBuffer(memory_size)
         self.batch_size = batch_size
-        if debug_file is None:
-            self.debug_file = None
-        else:
-            self.debug_file = open(debug_file, "a")
-            self.debug_file.write("KL,improvement\n")
+        self.N = N
+        self.Ne = Ne
+        self.t = t
 
     def choose_action(self, state):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
@@ -89,14 +89,14 @@ class Agent:
         location = torch.cat((old_mean, old_log_std), dim=1)
         scale = torch.FloatTensor([0.33]).to(device)
 
-        N = 100
-        Ne = 10
+        N = self.N
+        Ne = self.Ne
         original_shape = N, self.batch_size
         compress_shape = N * self.batch_size
         states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
 
         t = 0
-        while t <= 10:
+        while t < self.t:
             t += 1
             X = self.sample(location, scale, N)
             S = self.get_value(X, states, original_shape, compress_shape)
@@ -115,11 +115,6 @@ class Agent:
 
         # Updating Target-V Network
         self.critic.update_target_v()
-
-    def get_KL(self, old_log_prob, old_action_raw, old_action, new_mean, new_std):
-        new_log_prob = Normal(new_mean, new_std).log_prob(old_action_raw) - torch.log(1 - old_action.pow(2) + 1e-6)
-        new_log_prob = new_log_prob.sum(-1, keepdim=True)
-        return (old_log_prob - new_log_prob).abs().mean()
 
     def get_value(self, X, states, original_shape, compress_shape):
         len = X.shape[2] // 2

@@ -57,24 +57,30 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3 and len(sys.argv) != 4:
+    # Args: train.py agent_name task_name file_id [N Ne t]
+    if len(sys.argv) != 4 and len(sys.argv) != 7:
         print("Please provide agent name and file id")
         exit(1)
     agent_name = sys.argv[1]
-    task = "Ant-v2"
-    file_id = sys.argv[2]
-    debug_file = None
-    if len(sys.argv) == 4:
-        debug_file = agent_name + '_' + task + '_' + str(file_id) + '_debug' + '.csv'
-    print(agent_name, file_id)
-    file_name = agent_name + '_' + task + '_' + str(file_id) + '.csv'
+    task = sys.argv[2]
+    file_id = sys.argv[3]
+    N = None
+    Ne = None
+    t = None
+    if len(sys.argv) == 7:
+        N = int(sys.argv[4])
+        Ne = int(sys.argv[5])
+        t = int(sys.argv[6])
+    print("Agent: {} Task: {} File: {} N: {} Ne: {} t: {}".
+          format(agent_name, task, file_id, N, Ne, t))
+    file_name = agent_name + '_' + str(N) + '_' + str(Ne) + '_' + str(t) + '_' + task + '_' + str(file_id) + '.csv'
     environment = get_normalized_env(task)
     state_dim = environment.observation_space.shape[0]
     action_dim = environment.action_space.shape[0]
     if agent_name == 'sac':
-        agent_instance = SAC(state_dim, action_dim, debug_file=debug_file)
+        agent_instance = SAC(state_dim, action_dim)
     elif agent_name == 'trps':
-        agent_instance = TRPS(state_dim, action_dim, debug_file=debug_file)
+        agent_instance = TRPS(state_dim, action_dim)
     else:
         agent_instance = None
     if agent_instance is None:
@@ -84,5 +90,5 @@ if __name__ == "__main__":
     with open(file_name, "a") as file:
         file.write("{},Round {}\n".format("Episode", str(file_id)))
 
-    train_agent(agent_instance, environment, 250, False, file_name)
+    train_agent(agent_instance, environment, 1000, False, file_name)
     exit(0)
