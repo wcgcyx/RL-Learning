@@ -87,7 +87,9 @@ class Agent:
 
         # Start cross-entropy search
         location = torch.cat((old_mean, old_log_std), dim=1)
-        scale = torch.FloatTensor([0.33]).to(device)
+        mean_scale = torch.zeros(self.batch_size, self.action_dim).fill_(0.33).to(device)
+        log_std_scale = torch.zeros(self.batch_size, self.action_dim).fill_(0.33).to(device)
+        scale = torch.cat((mean_scale, log_std_scale), dim=1)
 
         N = self.N
         Ne = self.Ne
