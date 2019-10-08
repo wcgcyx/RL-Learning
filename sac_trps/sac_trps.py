@@ -28,7 +28,8 @@ class Agent:
             batch_size=128,
             N=100,
             Ne=10,
-            t=10):
+            t=10,
+            size=1):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.tr = tr
@@ -46,6 +47,9 @@ class Agent:
         self.N = N
         self.Ne = Ne
         self.t = t
+        self.size = size
+        print("TRPSN: {} Ne: {} t: {}, size: {}".
+              format(self.N, self.Ne, self.t, self.size))
 
     def choose_action(self, state):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
@@ -87,8 +91,8 @@ class Agent:
 
         # Start cross-entropy search
         location = torch.cat((old_mean, old_log_std), dim=1)
-        mean_scale = torch.zeros(self.batch_size, self.action_dim).fill_(0.33).to(device)
-        log_std_scale = torch.zeros(self.batch_size, self.action_dim).fill_(0.33).to(device)
+        mean_scale = torch.zeros(self.batch_size, self.action_dim).fill_(self.size).to(device)
+        log_std_scale = torch.zeros(self.batch_size, self.action_dim).fill_(self.size).to(device)
         scale = torch.cat((mean_scale, log_std_scale), dim=1)
 
         N = self.N
