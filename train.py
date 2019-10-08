@@ -75,7 +75,7 @@ if __name__ == "__main__":
         size = float(sys.argv[7])
     print("Agent: {} Task: {} File: {}".
           format(agent_name, task, file_id))
-    file_name = agent_name + '_' + str(N) + '_' + str(Ne) + '_' + str(t) + '_' + task + '_' + str(file_id) + '.csv'
+    file_name = agent_name + '_' + str(N) + '_' + str(Ne) + '_' + str(t) + '_' + str(size) + '_' + task + '_' + str(file_id) + '.csv'
     environment = get_normalized_env(task)
     state_dim = environment.observation_space.shape[0]
     action_dim = environment.action_space.shape[0]
