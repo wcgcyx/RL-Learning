@@ -1,5 +1,6 @@
 import sys
 from sac import Agent as SAC
+from sac_per import Agent as PER
 from sac_trps import Agent as TRPS
 from utils import get_normalized_env
 
@@ -81,6 +82,8 @@ if __name__ == "__main__":
     action_dim = environment.action_space.shape[0]
     if agent_name == 'sac':
         agent_instance = SAC(state_dim, action_dim)
+    elif agent_name == 'per':
+        agent_instance = PER(state_dim, action_dim)
     elif agent_name == 'trps':
         agent_instance = TRPS(state_dim, action_dim, N=N, Ne=Ne, t=t, size=size)
     else:
