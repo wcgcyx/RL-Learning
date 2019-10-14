@@ -32,9 +32,14 @@ class Actor:
     def predict(self, state):
         return self.policy_net.predict(state)
 
-    def learn(self, state, target_mean, target_log_std):
+    def trps_learn(self, state, target_mean, target_log_std):
         predicted_mean, predicted_log_std = self.policy_net.forward(state)
         policy_loss = nn.MSELoss()(predicted_mean, target_mean) + nn.MSELoss()(predicted_log_std, target_log_std)
+        self.policy_optimizer.zero_grad()
+        policy_loss.backward()
+        self.policy_optimizer.step()
+
+    def sac_learn(self, policy_loss):
         self.policy_optimizer.zero_grad()
         policy_loss.backward()
         self.policy_optimizer.step()

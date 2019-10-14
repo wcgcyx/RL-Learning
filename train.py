@@ -21,6 +21,9 @@ def train_agent(
         step_taken = 0
 
         for step in range(500):
+
+            print("{}\r".format(total_reward), end='')
+
             step_taken += 1
             action = agent.choose_action(state)
             # print("State: {}, Action: {}".format(state, action))
