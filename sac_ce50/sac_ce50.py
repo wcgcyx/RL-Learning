@@ -48,7 +48,8 @@ class Agent:
         self.Ne = Ne
         self.t = t
         self.size = size
-        print("TRPSN: {} Ne: {} t: {}, size: {}".
+        self.trigger = 0
+        print("CE50N: {} Ne: {} t: {}, size: {}".
               format(self.N, self.Ne, self.t, self.size))
 
     def choose_action(self, state):
@@ -85,39 +86,45 @@ class Agent:
         self.critic.learn_v(v_loss)
 
         # Train policy Network
-        old_mean, old_log_std = self.actor.policy_net.forward(state)
-        old_mean = old_mean.detach()
-        old_log_std = old_log_std.detach()
+        if self.trigger == 0:
+            policy_loss = (self.alpha * log_prob - predicted_new_q_value).mean()
+            self.actor.sac_learn(policy_loss)
+            self.trigger = 1
+        else:
+            old_mean, old_log_std = self.actor.policy_net.forward(state)
+            old_mean = old_mean.detach()
+            old_log_std = old_log_std.detach()
 
-        # Start cross-entropy search
-        location = torch.cat((old_mean, old_log_std), dim=1)
-        mean_scale = torch.zeros(self.batch_size, self.action_dim).fill_(self.size).to(device)
-        log_std_scale = torch.zeros(self.batch_size, self.action_dim).fill_(self.size).to(device)
-        scale = torch.cat((mean_scale, log_std_scale), dim=1)
+            # Start cross-entropy search
+            location = torch.cat((old_mean, old_log_std), dim=1)
+            mean_scale = torch.zeros(self.batch_size, self.action_dim).fill_(self.size).to(device)
+            log_std_scale = torch.zeros(self.batch_size, self.action_dim).fill_(self.size).to(device)
+            scale = torch.cat((mean_scale, log_std_scale), dim=1)
 
-        N = self.N
-        Ne = self.Ne
-        original_shape = N, self.batch_size
-        compress_shape = N * self.batch_size
-        states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
+            N = self.N
+            Ne = self.Ne
+            original_shape = N, self.batch_size
+            compress_shape = N * self.batch_size
+            states = state.expand(N, self.batch_size, self.state_dim).reshape(compress_shape, self.state_dim)
 
-        t = 0
-        while t < self.t:
-            t += 1
-            X = self.sample(location, scale, N)
-            S = self.get_value(X, states, original_shape, compress_shape)
-            _, indices = torch.topk(S, k=Ne, dim=0)
-            indices = indices.flatten()
-            XNe = torch.index_select(X, dim=0, index=indices)
-            location = XNe.mean(dim=0)
-            scale = XNe.std(dim=0)
-        #     print("STD: {}:{}".format(t, scale.mean().item()))
-        # print("Finish with STD: {}:{}".format(t, scale.mean().item()))
+            t = 0
+            while t < self.t:
+                t += 1
+                X = self.sample(location, scale, N)
+                S = self.get_value(X, states, original_shape, compress_shape)
+                _, indices = torch.topk(S, k=Ne, dim=0)
+                indices = indices.flatten()
+                XNe = torch.index_select(X, dim=0, index=indices)
+                location = XNe.mean(dim=0)
+                scale = XNe.std(dim=0)
+            #     print("STD: {}:{}".format(t, scale.mean().item()))
+            # print("Finish with STD: {}:{}".format(t, scale.mean().item()))
 
-        len = location.shape[1] // 2
-        target_mean, target_log_std = torch.split(location, len, dim=1)
+            len = location.shape[1] // 2
+            target_mean, target_log_std = torch.split(location, len, dim=1)
 
-        self.actor.learn(state, target_mean, target_log_std)
+            self.actor.trps_learn(state, target_mean, target_log_std)
+            self.trigger = 0
 
         # Updating Target-V Network
         self.critic.update_target_v()

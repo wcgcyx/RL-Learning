@@ -2,6 +2,7 @@ import sys
 from sac import Agent as SAC
 from sac_per import Agent as PER
 from sac_trps import Agent as TRPS
+from sac_ce50 import Agent as CE50
 from utils import get_normalized_env
 
 def train_agent(
@@ -89,6 +90,8 @@ if __name__ == "__main__":
         agent_instance = PER(state_dim, action_dim)
     elif agent_name == 'trps':
         agent_instance = TRPS(state_dim, action_dim, N=N, Ne=Ne, t=t, size=size)
+    elif agent_name == 'ce50':
+        agent_instance = CE50(state_dim, action_dim, N=N, Ne=Ne, t=t, size=size)
     else:
         agent_instance = None
     if agent_instance is None:
