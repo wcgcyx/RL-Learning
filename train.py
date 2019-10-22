@@ -62,24 +62,25 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    # Args: train.py agent_name task_name file_id [N Ne t size]
-    if len(sys.argv) != 4 and len(sys.argv) != 8:
+    # Args: train.py agent_name task_name episode file_id [N Ne t size]
+    if len(sys.argv) != 5 and len(sys.argv) != 9:
         print("Please provide agent name and file id")
         exit(1)
     agent_name = sys.argv[1]
     task = sys.argv[2]
-    file_id = sys.argv[3]
+    episode = int(sys.argv[3])
+    file_id = sys.argv[4]
     N = None
     Ne = None
     t = None
     size = None
     if len(sys.argv) == 8:
-        N = int(sys.argv[4])
-        Ne = int(sys.argv[5])
-        t = int(sys.argv[6])
-        size = float(sys.argv[7])
-    print("Agent: {} Task: {} File: {}".
-          format(agent_name, task, file_id))
+        N = int(sys.argv[5])
+        Ne = int(sys.argv[6])
+        t = int(sys.argv[7])
+        size = float(sys.argv[8])
+    print("Agent: {} Task: {} Episode: {} File: {}".
+          format(agent_name, task, episode, file_id))
     file_name = agent_name + '_' + str(N) + '_' + str(Ne) + '_' + str(t) + '_' + str(size) + '_' + task + '_' + str(file_id) + '.csv'
     environment = get_normalized_env(task)
     state_dim = environment.observation_space.shape[0]
@@ -101,5 +102,5 @@ if __name__ == "__main__":
     with open(file_name, "a") as file:
         file.write("{},Round {}\n".format("Episode", str(file_id)))
 
-    train_agent(agent_instance, environment, 1000, False, file_name)
+    train_agent(agent_instance, environment, episode, False, file_name)
     exit(0)
