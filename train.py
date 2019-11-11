@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 from sac import Agent as SAC
 from sac_per import Agent as PER
 from sac_trps import Agent as TRPS
@@ -10,7 +11,8 @@ def train_agent(
         env,
         max_episode,
         is_render,
-        output_file):
+        output_file,
+        task):
 
     episode = 0
     frame = 0
@@ -18,6 +20,10 @@ def train_agent(
     while episode <= max_episode:
 
         state = env.reset()
+        if task == 'jitterbug':
+            state = np.concatenate([state['position'], state['velocity'],
+                                    state['motor_position'], state['motor_velocity']])
+
         total_reward = 0
         step_taken = 0
 
@@ -29,6 +35,9 @@ def train_agent(
             action = agent.choose_action(state)
             # print("State: {}, Action: {}".format(state, action))
             next_state, reward, end, _ = env.step(action.numpy())
+            if task == 'jitterbug':
+                next_state = np.concatenate([next_state['position'], next_state['velocity'],
+                                        next_state['motor_position'], next_state['motor_velocity']])
 
             if step >= 499:
                 end = True
@@ -83,8 +92,12 @@ if __name__ == "__main__":
           format(agent_name, task, episode, file_id))
     file_name = agent_name + '_' + str(N) + '_' + str(Ne) + '_' + str(t) + '_' + str(size) + '_' + task + '_' + str(file_id) + '.csv'
     environment = get_normalized_env(task)
-    state_dim = environment.observation_space.shape[0]
-    action_dim = environment.action_space.shape[0]
+    if task == 'jitterbug':
+        state_dim = 15
+        action_dim = 1
+    else:
+        state_dim = environment.observation_space.shape[0]
+        action_dim = environment.action_space.shape[0]
     if agent_name == 'sac':
         agent_instance = SAC(state_dim, action_dim)
     elif agent_name == 'per':
@@ -102,5 +115,5 @@ if __name__ == "__main__":
     with open(file_name, "a") as file:
         file.write("{},Round {}\n".format("Episode", str(file_id)))
 
-    train_agent(agent_instance, environment, episode, False, file_name)
+    train_agent(agent_instance, environment, episode, False, file_name, task)
     exit(0)

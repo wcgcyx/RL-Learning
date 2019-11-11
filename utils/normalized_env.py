@@ -1,6 +1,7 @@
 import gym
 import numpy as np
-
+import jitterbug_dmc
+from dm_control import suite
 
 class NormalizedActions(gym.ActionWrapper):
     def action(self, action):
@@ -23,4 +24,14 @@ class NormalizedActions(gym.ActionWrapper):
 
 
 def get_normalized_env(task):
-    return NormalizedActions(gym.make(task))
+    if task == 'jitterbug':
+        env = jitterbug_dmc.JitterbugGymEnv(
+            suite.load(
+            domain_name="jitterbug",
+            task_name="move_from_origin",
+            visualize_reward=True
+            )
+        )
+    else:
+        env = gym.make(task)
+    return NormalizedActions(env)
