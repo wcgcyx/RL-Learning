@@ -48,18 +48,53 @@ class Agent:
         self.Ne = Ne
         self.t = t
         self.size = size
-        print("TRPSN: {} Ne: {} t: {}, size: {}".
-              format(self.N, self.Ne, self.t, self.size))
 
     def choose_action(self, state):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         return self.actor.get_action(state)
 
     def store_transition(self, state, action, reward, next_state, end):
-        self.memory.push(state, action, reward, next_state, end)
+        state_ = np.expand_dims(state, axis=0)
+        state_ = torch.FloatTensor(state_).to(device)
+        # Train policy Network
+        old_mean, old_log_std = self.actor.policy_net.forward(state_)
+        old_mean = old_mean.detach()
+        old_log_std = old_log_std.detach()
+
+        # Start cross-entropy search
+        location = torch.cat((old_mean, old_log_std), dim=1)
+        mean_scale = torch.zeros(1, self.action_dim).fill_(self.size).to(device)
+        log_std_scale = torch.zeros(1, self.action_dim).fill_(self.size).to(device)
+        scale = torch.cat((mean_scale, log_std_scale), dim=1)
+
+        N = self.N
+        Ne = self.Ne
+        original_shape = N, 1
+        compress_shape = N * 1
+        states = state_.expand(N, 1, self.state_dim).reshape(compress_shape, self.state_dim)
+
+        t = 0
+        while t < self.t:
+            t += 1
+            X = self.sample(location, scale, N)
+            S = self.get_value(X, states, original_shape, compress_shape)
+            _, indices = torch.topk(S, k=Ne, dim=0)
+            indices = indices.flatten()
+            XNe = torch.index_select(X, dim=0, index=indices)
+            location = XNe.mean(dim=0)
+            scale = XNe.std(dim=0)
+
+        len = location.shape[1] // 2
+        target_mean, target_log_std = torch.split(location, len, dim=1)
+        # self.actor.learn(state, target_mean, target_log_std)
+        error = 0.5 * (old_mean - target_mean).pow(2) + 0.5 * (old_log_std - target_log_std).pow(2)
+        error = error.item()
+
+        self.memory.push(error, (state, action, reward, next_state, end))
 
     def learn(self):
-        state, action, reward, next_state, end = self.memory.sample(self.batch_size)
+        batch, idxs, is_weights = self.memory.sample(self.batch_size)
+        state, action, reward, next_state, end = map(np.stack, zip(*batch))
 
         state = torch.FloatTensor(state).to(device)
         action = torch.FloatTensor(action).to(device)
@@ -111,11 +146,16 @@ class Agent:
             XNe = torch.index_select(X, dim=0, index=indices)
             location = XNe.mean(dim=0)
             scale = XNe.std(dim=0)
-        #     print("STD: {}:{}".format(t, scale.mean().item()))
-        # print("Finish with STD: {}:{}".format(t, scale.mean().item()))
 
         len = location.shape[1] // 2
         target_mean, target_log_std = torch.split(location, len, dim=1)
+
+        errors = 0.5 * (old_mean - target_mean).pow(2) + 0.5 * (old_log_std - target_log_std).pow(2)
+        errors = errors.cpu().detach().numpy()
+
+        for i in range(self.batch_size):
+            idx = idxs[i]
+            self.memory.update(idx, errors[i])
 
         self.actor.learn(state, target_mean, target_log_std)
 

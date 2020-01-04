@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 from sac import Agent as SAC
-from sac_per import Agent as PER
+from sac_trps_per import Agent as PER
 from sac_trps import Agent as TRPS
 from sac_ce50 import Agent as CE50
 from utils import get_normalized_env
